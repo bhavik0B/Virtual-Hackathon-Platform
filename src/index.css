@@ -1,0 +1,473 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #0f172a;
+  color: #f1f5f9;
+  overflow-x: hidden;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+/* React Resizable Panels Styles */
+[data-panel-group] {
+  display: flex;
+}
+
+[data-panel-group][data-panel-group-direction="vertical"] {
+  flex-direction: column;
+}
+
+[data-panel-group][data-panel-group-direction="horizontal"] {
+  flex-direction: row;
+}
+
+[data-panel] {
+  overflow: hidden;
+}
+
+[data-panel-resize-handle] {
+  background: #334155;
+  transition: all 0.2s ease;
+}
+
+[data-panel-resize-handle]:hover {
+  background: #475569;
+}
+
+[data-panel-resize-handle][data-panel-resize-handle-direction="vertical"] {
+  height: 4px;
+  cursor: row-resize;
+}
+
+[data-panel-resize-handle][data-panel-resize-handle-direction="horizontal"] {
+  width: 4px;
+  cursor: col-resize;
+}
+
+[data-panel-resize-handle]:hover {
+  background: #3b82f6;
+}
+
+.monaco-editor-placeholder {
+  background: #1e293b;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 16px;
+  border-radius: 8px;
+  min-height: 400px;
+  overflow: auto;
+}
+
+.video-placeholder {
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  border-radius: 12px;
+  aspect-ratio: 16/9;
+  min-height: 200px;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900;
+  }
+  
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-600 text-gray-100 font-medium py-2 px-4 rounded-lg border border-slate-600 hover:border-slate-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900;
+  }
+  
+  .card {
+    @apply bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-6;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-white placeholder-gray-400;
+  }
+
+  .gradient-border {
+    @apply relative;
+  }
+
+  .gradient-border::before {
+    content: '';
+    @apply absolute inset-0 rounded-lg p-[1px] bg-gradient-to-r from-blue-500 to-purple-600;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+
+  .glow-effect {
+    @apply shadow-lg;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+
+  .glow-effect:hover {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+.scroll-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #f1f5f9;
+}
+
+/* Code syntax highlighting simulation */
+.syntax-keyword {
+  color: #c792ea;
+}
+
+.syntax-string {
+  color: #c3e88d;
+}
+
+.syntax-comment {
+  color: #546e7a;
+  font-style: italic;
+}
+
+.syntax-function {
+  color: #82aaff;
+}
+
+.syntax-variable {
+  color: #eeffff;
+}
+
+.syntax-number {
+  color: #f78c6c;
+}
+
+/* Animation classes */
+.animate-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Terminal styling */
+.terminal-output {
+  font-family: 'JetBrains Mono', monospace;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+/* Chat message styling */
+.chat-message {
+  @apply rounded-lg p-3 max-w-xs;
+}
+
+.chat-message.own {
+  @apply bg-gradient-to-r from-blue-500 to-purple-600 text-white ml-auto;
+}
+
+.chat-message.other {
+  @apply bg-slate-700 text-gray-100 border border-slate-600;
+}
+
+.chat-message.system {
+  @apply bg-slate-700 text-gray-300 italic border border-slate-600;
+}
+
+/* File tree styling */
+.file-tree-item {
+  @apply flex items-center py-1.5 px-2 rounded cursor-pointer transition-all duration-200;
+}
+
+.file-tree-item:hover {
+  @apply bg-slate-700/50;
+}
+
+.file-tree-item.active {
+  @apply bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300;
+}
+
+/* Status indicators */
+.status-online {
+  @apply bg-green-400;
+}
+
+.status-away {
+  @apply bg-yellow-400;
+}
+
+.status-offline {
+  @apply bg-gray-400;
+}
+
+/* Loading states */
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-500;
+}
+
+/* Responsive design helpers */
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none;
+  }
+}
+
+/* Focus styles for accessibility */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+/* Hover effects */
+.hover-lift {
+  @apply transition-transform duration-200;
+}
+
+.hover-lift:hover {
+  @apply transform -translate-y-1;
+}
+
+/* Button variants */
+.btn-ghost {
+  @apply bg-transparent hover:bg-slate-700/50 text-gray-300 hover:text-white border border-transparent hover:border-slate-600;
+}
+
+.btn-outline {
+  @apply bg-transparent border border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white hover:border-slate-500;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-700 text-white border border-red-600 hover:border-red-700;
+}
+
+/* Form elements */
+.form-input {
+  @apply bg-slate-700 border border-slate-600 text-white placeholder-gray-400 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.form-textarea {
+  @apply bg-slate-700 border border-slate-600 text-white placeholder-gray-400 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none;
+}
+
+.form-select {
+  @apply bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+/* Table styling */
+.table-dark {
+  @apply bg-slate-800 border border-slate-700;
+}
+
+.table-dark th {
+  @apply bg-slate-700 text-gray-200 border-b border-slate-600;
+}
+
+.table-dark td {
+  @apply border-b border-slate-700 text-gray-300;
+}
+
+/* Modal styling */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm;
+}
+
+.modal-content {
+  @apply bg-slate-800 border border-slate-700 rounded-xl shadow-2xl;
+}
+
+/* Notification styling */
+.notification {
+  @apply bg-slate-800 border border-slate-700 rounded-lg shadow-lg;
+}
+
+.notification.success {
+  @apply border-green-500/30 bg-green-500/10;
+}
+
+.notification.error {
+  @apply border-red-500/30 bg-red-500/10;
+}
+
+.notification.warning {
+  @apply border-yellow-500/30 bg-yellow-500/10;
+}
+
+.notification.info {
+  @apply border-blue-500/30 bg-blue-500/10;
+}
+
+/* Responsive utilities */
+@media (min-width: 640px) {
+  .sm\:max-w-screen-sm {
+    max-width: 640px;
+  }
+}
+
+@media (min-width: 768px) {
+  .md\:max-w-screen-md {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .lg\:max-w-screen-lg {
+    max-width: 1024px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .xl\:max-w-screen-xl {
+    max-width: 1280px;
+  }
+}
+
+@media (min-width: 1536px) {
+  .2xl\:max-w-screen-2xl {
+    max-width: 1536px;
+  }
+}
+
+/* Fullscreen utilities */
+.fullscreen-container {
+  @apply fixed inset-0 z-50 bg-slate-900;
+}
+
+.fullscreen-content {
+  @apply h-full w-full overflow-hidden;
+}
+
+/* Flex utilities for better layout control */
+.flex-container {
+  @apply flex min-h-0 min-w-0;
+}
+
+.flex-item {
+  @apply min-h-0 min-w-0;
+}
+
+/* Grid utilities for responsive layouts */
+.responsive-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+}
+
+.responsive-grid-2 {
+  @apply grid grid-cols-1 lg:grid-cols-2 gap-6;
+}
+
+.responsive-grid-3 {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+/* Container utilities */
+.container-responsive {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full;
+}
+
+.container-full {
+  @apply w-full h-full min-h-0 min-w-0;
+}
+
+/* Layout utilities */
+.layout-main {
+  @apply flex-1 overflow-auto min-h-0 min-w-0;
+}
+
+.layout-sidebar {
+  @apply flex-shrink-0 overflow-y-auto;
+}
+
+.layout-header {
+  @apply flex-shrink-0;
+}
+
+.layout-footer {
+  @apply flex-shrink-0;
+}
