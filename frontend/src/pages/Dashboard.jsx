@@ -129,7 +129,7 @@ const Dashboard = () => {
           <Card className="p-6 w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Upcoming Events</h2>
-              <Link to="/schedule" className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center group">
+              <Link className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center group">
                 View All
                 <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
@@ -138,7 +138,9 @@ const Dashboard = () => {
               {upcomingEvents.map((event) => (
                 <div key={event.id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
                   <div className="flex-1">
-                    <h3 className="font-medium text-white">{event.title}</h3>
+                  <Link to="/schedule" className="font-medium text-white text-base hover:text-blue-300 transition-colors">
+                      {event.title}
+                    </Link>
                     <div className="flex items-center text-sm text-gray-400 mt-1">
                       <Calendar className="h-4 w-4 mr-1" />
                       {event.date} at {event.time}
