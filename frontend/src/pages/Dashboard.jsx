@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, 
@@ -17,15 +17,49 @@ import {
   Award,
   X
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
+import { jwtDecode } from 'jwt-decode';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [showProjectsModal, setShowProjectsModal] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    console.log('Dashboard: Token found:', !!token, 'User logged in:', !!user);
+    
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        console.log('Dashboard: Decoded token:', decoded);
+        
+        // If user is not logged in, login them
+        if (!user) {
+          login(decoded);
+        }
+        
+        // Check if user is admin and redirect accordingly
+        if (decoded.isAdmin) {
+          console.log('Dashboard: User is admin, redirecting to /admin');
+          navigate('/admin', { replace: true });
+        } else {
+          console.log('Dashboard: User is not admin, redirecting to /dashboard');
+          navigate('/dashboard', { replace: true });
+        }
+      } catch (err) {
+        // If token is invalid, redirect to login
+        console.error('Dashboard: Token decode error:', err);
+        navigate('/auth');
+      }
+    }
+  }, [location.search, login, navigate, user]);
 
   const stats = [
     { label: 'Hours Coded', value: '156', icon: Clock, color: 'from-orange-500 to-red-500' },
@@ -265,7 +299,7 @@ const Dashboard = () => {
                       {event.participants} participants
                     </div>
                   </div>
-                  <span className="px-3 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30">
+                  <span className="px-3 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 rounded border border-blue-500/30">
                     {event.status}
                   </span>
                 </div>

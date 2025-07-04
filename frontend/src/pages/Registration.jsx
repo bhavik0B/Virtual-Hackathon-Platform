@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, 
@@ -23,6 +23,8 @@ import Button from '../components/Button';
 import InputField from '../components/InputField';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import * as jwt_decode from 'jwt-decode';
+import axios from 'axios';
 
 const Registration = () => {
   const navigate = useNavigate();
@@ -52,7 +54,8 @@ const Registration = () => {
     // Step 3: Skills & Interests
     skills: [],
     interests: [],
-    experience: 'beginner'
+    experience: 'beginner',
+    googleId: '',
   });
 
   const skillOptions = [
@@ -166,37 +169,69 @@ const Registration = () => {
     setCurrentStep(prev => prev - 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
-    
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const userData = {
-        id: Date.now().toString(),
-        name: `${formData.firstName} ${formData.lastName}`,
+
+    try {
+      console.log('Submitting registration:', formData);
+      const res = await axios.post('http://localhost:5000/api/users/register', {
+        googleId: formData.googleId,
         email: formData.email,
-        avatar: `${formData.firstName[0]}${formData.lastName[0]}`,
-        isAdmin: false,
-        profile: {
-          bio: formData.bio,
-          location: formData.location,
-          website: formData.website,
-          github: formData.github,
-          linkedin: formData.linkedin,
-          skills: formData.skills,
-          interests: formData.interests,
-          experience: formData.experience
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        name: `${formData.firstName} ${formData.lastName}`,
+        password: formData.password,
+        bio: formData.bio,
+        location: formData.location,
+        website: formData.website,
+        github: formData.github,
+        linkedin: formData.linkedin,
+        skills: formData.skills,
+        interests: formData.interests,
+        experience: formData.experience,
+      });
+      console.log('Registration response:', res);
+
+      if (res.status === 201) {
+        login(res.data.user);
+        success('Registration successful! Welcome to HackCollab!');
+        
+        // Check if user is admin and redirect accordingly
+        if (res.data.user.isAdmin) {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
         }
-      };
-      
-      login(userData);
-      success('Registration successful! Welcome to HackCollab!');
-      navigate('/dashboard');
+      } else {
+        error(res.data.message || 'Registration failed');
+      }
+    } catch (err) {
+      console.error('Registration error:', err);
+      error(err.response?.data?.message || 'Registration failed');
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      try {
+        const decoded = jwt_decode.default(token);
+        setFormData(prev => ({
+          ...prev,
+          email: decoded.email || '',
+          firstName: decoded.name ? decoded.name.split(' ')[0] : '',
+          lastName: decoded.name ? decoded.name.split(' ').slice(1).join(' ') : '',
+          googleId: decoded.googleId || '',
+        }));
+      } catch (err) {
+        // handle error
+      }
+    }
+  }, []);
 
   const renderStep1 = () => (
     <div className="space-y-4">

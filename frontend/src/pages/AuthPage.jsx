@@ -12,25 +12,6 @@ const AuthPage = () => {
   const { login } = useAuth();
   const { success } = useToast();
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const userData = {
-        id: '1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        avatar: 'JD',
-        isAdmin: false,
-        isMentor: false
-      };
-      login(userData);
-      success('Welcome to HackCollab!');
-      navigate('/dashboard');
-      setLoading(false);
-    }, 1500);
-  };
-
   const handleGithubLogin = async () => {
     setLoading(true);
     // Simulate API call
@@ -76,7 +57,7 @@ const AuthPage = () => {
             variant="secondary"
             size="lg"
             className="w-full"
-            onClick={handleGoogleLogin}
+            onClick={() => window.location.href = 'http://localhost:5000/api/users/auth/google'}
             loading={loading}
             disabled={loading}
           >
