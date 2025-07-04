@@ -65,7 +65,8 @@ const AdminDashboard = () => {
     maxTeamSize: 4,
     prizes: ['', '', ''],
     status: 'upcoming',
-    eligibility: 'both'
+    eligibility: 'both',
+    levels: []
   });
 
   // Customer form data
@@ -140,7 +141,8 @@ const AdminDashboard = () => {
       eligibility: 'students',
       participants: 156,
       teams: 42,
-      submissions: 28
+      submissions: 28,
+      levels: []
     },
     {
       id: 2,
@@ -157,7 +159,8 @@ const AdminDashboard = () => {
       eligibility: 'both',
       participants: 89,
       teams: 23,
-      submissions: 0
+      submissions: 0,
+      levels: []
     },
     {
       id: 3,
@@ -174,7 +177,8 @@ const AdminDashboard = () => {
       eligibility: 'professionals',
       participants: 67,
       teams: 18,
-      submissions: 0
+      submissions: 0,
+      levels: []
     },
     {
       id: 4,
@@ -191,7 +195,8 @@ const AdminDashboard = () => {
       eligibility: 'both',
       participants: 134,
       teams: 35,
-      submissions: 32
+      submissions: 32,
+      levels: []
     }
   ]);
 
@@ -371,7 +376,8 @@ const AdminDashboard = () => {
       maxTeamSize: 4,
       prizes: ['', '', ''],
       status: 'upcoming',
-      eligibility: 'both'
+      eligibility: 'both',
+      levels: []
     });
   };
 
@@ -401,7 +407,8 @@ const AdminDashboard = () => {
         maxTeamSize: item.maxTeamSize,
         prizes: item.prizes,
         status: item.status,
-        eligibility: item.eligibility
+        eligibility: item.eligibility,
+        levels: item.levels || []
       });
       setShowHackathonModal(true);
     } else {
@@ -940,6 +947,56 @@ const AdminDashboard = () => {
               ))}
             </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Number of Levels</label>
+            <InputField
+              type="number"
+              min="0"
+              value={hackathonData.levels.length}
+              onChange={e => {
+                const num = parseInt(e.target.value) || 0;
+                let newLevels = [...hackathonData.levels];
+                if (num > newLevels.length) {
+                  for (let i = newLevels.length; i < num; i++) {
+                    newLevels.push({ name: '', deadline: '' });
+                  }
+                } else if (num < newLevels.length) {
+                  newLevels = newLevels.slice(0, num);
+                }
+                handleInputChange('levels', newLevels);
+              }}
+            />
+          </div>
+
+          {hackathonData.levels.length > 0 && (
+            <div className="space-y-2 mt-2">
+              {hackathonData.levels.map((level, idx) => (
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                  <InputField
+                    label={`Level ${idx + 1} Name`}
+                    placeholder={`Enter name for level ${idx + 1}`}
+                    value={level.name}
+                    onChange={e => {
+                      const newLevels = [...hackathonData.levels];
+                      newLevels[idx].name = e.target.value;
+                      handleInputChange('levels', newLevels);
+                    }}
+                  />
+                  <InputField
+                    label={`Level ${idx + 1} Deadline`}
+                    type="date"
+                    value={level.deadline}
+                    onChange={e => {
+                      const newLevels = [...hackathonData.levels];
+                      newLevels[idx].deadline = e.target.value;
+                      handleInputChange('levels', newLevels);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex justify-end space-x-3 mt-6">
             <Button variant="outline" onClick={() => {
