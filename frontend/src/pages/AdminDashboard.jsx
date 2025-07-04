@@ -60,13 +60,17 @@ const AdminDashboard = () => {
     description: '',
     customerId: '',
     startDate: '',
+    startTime: '00:00',
     endDate: '',
+    endTime: '00:00',
     registrationDeadline: '',
+    registrationDeadlineTime: '00:00',
     maxTeamSize: 4,
     prizes: ['', '', ''],
     status: 'upcoming',
     eligibility: 'both',
-    levels: []
+    levels: [],
+    createdAt: ''
   });
 
   // Customer form data
@@ -78,7 +82,8 @@ const AdminDashboard = () => {
     address: '',
     website: '',
     contactPerson: '',
-    status: 'active'
+    status: 'active',
+    createdAt: ''
   });
 
   // Mock data for customers
@@ -142,7 +147,8 @@ const AdminDashboard = () => {
       participants: 156,
       teams: 42,
       submissions: 28,
-      levels: []
+      levels: [],
+      createdAt: '2024-01-14T00:00:00Z'
     },
     {
       id: 2,
@@ -160,7 +166,8 @@ const AdminDashboard = () => {
       participants: 89,
       teams: 23,
       submissions: 0,
-      levels: []
+      levels: [],
+      createdAt: '2024-01-22T00:00:00Z'
     },
     {
       id: 3,
@@ -178,7 +185,8 @@ const AdminDashboard = () => {
       participants: 67,
       teams: 18,
       submissions: 0,
-      levels: []
+      levels: [],
+      createdAt: '2024-01-28T00:00:00Z'
     },
     {
       id: 4,
@@ -196,7 +204,8 @@ const AdminDashboard = () => {
       participants: 134,
       teams: 35,
       submissions: 32,
-      levels: []
+      levels: [],
+      createdAt: '2024-01-05T00:00:00Z'
     }
   ]);
 
@@ -283,12 +292,34 @@ const AdminDashboard = () => {
       error('Hackathon name is required');
       return;
     }
-    
+
+    // Helper to ensure date is in YYYY-MM-DDT00:00:00Z format
+    const toISO = (dateStr, timeStr) => {
+      if (!dateStr) return '';
+      const t = timeStr || '00:00';
+      return `${dateStr}T${t}:00Z`;
+    };
+
+    // Prepare levels with midnight deadlines
+    const levelsWithDeadlineISO = (hackathonData.levels || []).map(level => ({
+      ...level,
+      deadline: toISO(level.deadline, level.deadlineTime)
+    }));
+
+    const hackathonToSave = {
+      ...hackathonData,
+      startDate: toISO(hackathonData.startDate, hackathonData.startTime),
+      endDate: toISO(hackathonData.endDate, hackathonData.endTime),
+      registrationDeadline: toISO(hackathonData.registrationDeadline, hackathonData.registrationDeadlineTime),
+      levels: levelsWithDeadlineISO,
+      createdAt: selectedItem ? hackathonData.createdAt : new Date().toISOString()
+    };
+
     if (selectedItem) {
       // Update existing hackathon
-      setHackathons(prev => prev.map(h => 
-        h.id === selectedItem.id 
-          ? { ...h, ...hackathonData, customer: customers.find(c => c.id === parseInt(hackathonData.customerId))?.name || '' }
+      setHackathons(prev => prev.map(h =>
+        h.id === selectedItem.id
+          ? { ...h, ...hackathonToSave, customer: customers.find(c => c.id === parseInt(hackathonData.customerId))?.name || '' }
           : h
       ));
       success('Hackathon updated successfully!');
@@ -296,7 +327,7 @@ const AdminDashboard = () => {
       // Create new hackathon
       const newHackathon = {
         id: Date.now(),
-        ...hackathonData,
+        ...hackathonToSave,
         customer: customers.find(c => c.id === parseInt(hackathonData.customerId))?.name || '',
         participants: 0,
         teams: 0,
@@ -305,7 +336,7 @@ const AdminDashboard = () => {
       setHackathons(prev => [newHackathon, ...prev]);
       success('Hackathon created successfully!');
     }
-    
+
     setShowHackathonModal(false);
     setSelectedItem(null);
     resetHackathonForm();
@@ -329,7 +360,7 @@ const AdminDashboard = () => {
         id: Date.now(),
         ...customerData,
         hackathonsCount: 0,
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: new Date().toISOString()
       };
       setCustomers(prev => [newCustomer, ...prev]);
       success('Customer created successfully!');
@@ -371,13 +402,17 @@ const AdminDashboard = () => {
       description: '',
       customerId: '',
       startDate: '',
+      startTime: '00:00',
       endDate: '',
+      endTime: '00:00',
       registrationDeadline: '',
+      registrationDeadlineTime: '00:00',
       maxTeamSize: 4,
       prizes: ['', '', ''],
       status: 'upcoming',
       eligibility: 'both',
-      levels: []
+      levels: [],
+      createdAt: ''
     });
   };
 
@@ -390,7 +425,8 @@ const AdminDashboard = () => {
       address: '',
       website: '',
       contactPerson: '',
-      status: 'active'
+      status: 'active',
+      createdAt: ''
     });
   };
 
@@ -401,14 +437,22 @@ const AdminDashboard = () => {
         name: item.name,
         description: item.description,
         customerId: item.customerId.toString(),
-        startDate: item.startDate.split('T')[0],
-        endDate: item.endDate.split('T')[0],
-        registrationDeadline: item.registrationDeadline.split('T')[0],
+        startDate: item.startDate ? item.startDate.split('T')[0] : '',
+        startTime: item.startDate ? (item.startDate.split('T')[1] ? item.startDate.split('T')[1].slice(0,5) : '00:00') : '00:00',
+        endDate: item.endDate ? item.endDate.split('T')[0] : '',
+        endTime: item.endDate ? (item.endDate.split('T')[1] ? item.endDate.split('T')[1].slice(0,5) : '00:00') : '00:00',
+        registrationDeadline: item.registrationDeadline ? item.registrationDeadline.split('T')[0] : '',
+        registrationDeadlineTime: item.registrationDeadline ? (item.registrationDeadline.split('T')[1] ? item.registrationDeadline.split('T')[1].slice(0,5) : '00:00') : '00:00',
         maxTeamSize: item.maxTeamSize,
         prizes: item.prizes,
         status: item.status,
         eligibility: item.eligibility,
-        levels: item.levels || []
+        levels: (item.levels || []).map(level => ({
+          ...level,
+          deadline: level.deadline ? level.deadline.split('T')[0] : '',
+          deadlineTime: level.deadline ? (level.deadline.split('T')[1] ? level.deadline.split('T')[1].slice(0,5) : '00:00') : '00:00'
+        })),
+        createdAt: item.createdAt
       });
       setShowHackathonModal(true);
     } else {
@@ -424,6 +468,44 @@ const AdminDashboard = () => {
       });
       setShowCustomerModal(true);
     }
+  };
+
+  const openAddCustomerModal = () => {
+    setSelectedItem(null);
+    setCustomerData({
+      name: '',
+      email: '',
+      phone: '',
+      company: '',
+      address: '',
+      website: '',
+      contactPerson: '',
+      status: 'active',
+      createdAt: new Date().toISOString()
+    });
+    setShowCustomerModal(true);
+  };
+
+  const openAddHackathonModal = () => {
+    setSelectedItem(null);
+    setHackathonData({
+      name: '',
+      description: '',
+      customerId: '',
+      startDate: '',
+      startTime: '00:00',
+      endDate: '',
+      endTime: '00:00',
+      registrationDeadline: '',
+      registrationDeadlineTime: '00:00',
+      maxTeamSize: 4,
+      prizes: ['', '', ''],
+      status: 'upcoming',
+      eligibility: 'both',
+      levels: [],
+      createdAt: new Date().toISOString()
+    });
+    setShowHackathonModal(true);
   };
 
   const filteredHackathons = hackathons.filter(hackathon => {
@@ -628,13 +710,13 @@ const AdminDashboard = () => {
 
             <div className="flex space-x-2">
               {activeTab === 'hackathons' && (
-                <Button onClick={() => setShowHackathonModal(true)}>
+                <Button onClick={openAddHackathonModal}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Hackathon
                 </Button>
               )}
               {activeTab === 'customers' && (
-                <Button onClick={() => setShowCustomerModal(true)}>
+                <Button onClick={openAddCustomerModal}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Customer
                 </Button>
@@ -694,6 +776,7 @@ const AdminDashboard = () => {
                     <span>Start: {formatDate(hackathon.startDate)}</span>
                     <span>End: {formatDate(hackathon.endDate)}</span>
                     <span>Registration Deadline: {formatDate(hackathon.registrationDeadline)}</span>
+                    <span>Created At: {formatDate(hackathon.createdAt)}</span>
                   </div>
                 </motion.div>
               ))}
@@ -869,27 +952,54 @@ const AdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <InputField
-              label="Start Date"
-              type="date"
-              value={hackathonData.startDate}
-              onChange={(e) => handleInputChange('startDate', e.target.value)}
-              required
-            />
-            <InputField
-              label="End Date"
-              type="date"
-              value={hackathonData.endDate}
-              onChange={(e) => handleInputChange('endDate', e.target.value)}
-              required
-            />
-            <InputField
-              label="Registration Deadline"
-              type="date"
-              value={hackathonData.registrationDeadline}
-              onChange={(e) => handleInputChange('registrationDeadline', e.target.value)}
-              required
-            />
+            <div>
+              <InputField
+                label="Start Date"
+                type="date"
+                value={hackathonData.startDate}
+                onChange={e => handleInputChange('startDate', e.target.value)}
+                required
+              />
+              <InputField
+                label="Start Time"
+                type="time"
+                value={hackathonData.startTime}
+                onChange={e => handleInputChange('startTime', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <InputField
+                label="End Date"
+                type="date"
+                value={hackathonData.endDate}
+                onChange={e => handleInputChange('endDate', e.target.value)}
+                required
+              />
+              <InputField
+                label="End Time"
+                type="time"
+                value={hackathonData.endTime}
+                onChange={e => handleInputChange('endTime', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <InputField
+                label="Registration Deadline"
+                type="date"
+                value={hackathonData.registrationDeadline}
+                onChange={e => handleInputChange('registrationDeadline', e.target.value)}
+                required
+              />
+              <InputField
+                label="Registration Deadline Time"
+                type="time"
+                value={hackathonData.registrationDeadlineTime}
+                onChange={e => handleInputChange('registrationDeadlineTime', e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -959,7 +1069,7 @@ const AdminDashboard = () => {
                 let newLevels = [...hackathonData.levels];
                 if (num > newLevels.length) {
                   for (let i = newLevels.length; i < num; i++) {
-                    newLevels.push({ name: '', deadline: '' });
+                    newLevels.push({ name: '', deadline: '', deadlineTime: '00:00' });
                   }
                 } else if (num < newLevels.length) {
                   newLevels = newLevels.slice(0, num);
@@ -983,16 +1093,28 @@ const AdminDashboard = () => {
                       handleInputChange('levels', newLevels);
                     }}
                   />
-                  <InputField
-                    label={`Level ${idx + 1} Deadline`}
-                    type="date"
-                    value={level.deadline}
-                    onChange={e => {
-                      const newLevels = [...hackathonData.levels];
-                      newLevels[idx].deadline = e.target.value;
-                      handleInputChange('levels', newLevels);
-                    }}
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <InputField
+                      label={`Level ${idx + 1} Deadline`}
+                      type="date"
+                      value={level.deadline}
+                      onChange={e => {
+                        const newLevels = [...hackathonData.levels];
+                        newLevels[idx].deadline = e.target.value;
+                        handleInputChange('levels', newLevels);
+                      }}
+                    />
+                    <InputField
+                      label={`Time`}
+                      type="time"
+                      value={level.deadlineTime || '00:00'}
+                      onChange={e => {
+                        const newLevels = [...hackathonData.levels];
+                        newLevels[idx].deadlineTime = e.target.value;
+                        handleInputChange('levels', newLevels);
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
