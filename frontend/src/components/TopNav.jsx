@@ -1,9 +1,15 @@
 import React from 'react';
 import { Menu, Bell, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const TopNav = ({ onMenuClick }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleProfileClick = () => {
+    navigate('/profile');
+  };
 
   return (
     <header className="bg-slate-800 border-b border-slate-700 shadow-lg flex-shrink-0 w-full">
@@ -43,11 +49,14 @@ const TopNav = ({ onMenuClick }) => {
               <p className="text-sm font-medium text-white">{user?.name}</p>
               <p className="text-xs text-gray-400">{user?.email}</p>
             </div>
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+            <button
+              onClick={handleProfileClick}
+              className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center hover:scale-105 transition-transform"
+            >
               <span className="text-sm font-medium text-white">
                 {user?.name?.charAt(0) || 'U'}
               </span>
-            </div>
+            </button>
           </div>
         </div>
       </div>

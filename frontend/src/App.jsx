@@ -4,12 +4,16 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
+import Registration from './pages/Registration';
 import Dashboard from './pages/Dashboard';
 import TeamManagement from './pages/TeamManagement';
 import EditorWorkspace from './pages/EditorWorkspace';
 import ChatVideo from './pages/ChatVideo';
 import ProjectSubmission from './pages/ProjectSubmission';
 import HackathonSchedule from './pages/HackathonSchedule';
+import JoinHackathon from './pages/JoinHackathon';
+import Leaderboard from './pages/Leaderboard';
+import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import Layout from './layouts/Layout';
 import './index.css';
@@ -20,10 +24,19 @@ function ProtectedRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/auth" />;
 }
 
-// Admin Route Component
+// Admin Route Component - Standalone without Layout
 function AdminRoute({ children }) {
   const { isAuthenticated, user } = useAuth();
-  return isAuthenticated && user?.isAdmin ? children : <Navigate to="/dashboard" />;
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" />;
+  }
+  
+  if (!user?.isAdmin) {
+    return <Navigate to="/dashboard" />;
+  }
+  
+  return children;
 }
 
 function App() {
@@ -35,6 +48,16 @@ function App() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/register" element={<Registration />} />
+              
+              {/* Standalone Admin Route - No Layout */}
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              } />
+              
+              {/* Regular User Routes with Layout */}
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Layout>
@@ -77,12 +100,24 @@ function App() {
                   </Layout>
                 </ProtectedRoute>
               } />
-              <Route path="/admin" element={
-                <AdminRoute>
+              <Route path="/join-hackathon" element={
+                <ProtectedRoute>
+                  <JoinHackathon />
+                </ProtectedRoute>
+              } />
+              <Route path="/leaderboard" element={
+                <ProtectedRoute>
                   <Layout>
-                    <AdminDashboard />
+                    <Leaderboard />
                   </Layout>
-                </AdminRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Profile />
+                  </Layout>
+                </ProtectedRoute>
               } />
             </Routes>
           </div>

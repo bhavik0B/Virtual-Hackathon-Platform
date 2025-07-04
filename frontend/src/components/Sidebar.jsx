@@ -10,8 +10,9 @@ import {
   Settings,
   LogOut,
   X,
-  Shield,
-  Code2
+  Code2,
+  Trophy,
+  User
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -26,11 +27,9 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Editor', path: '/editor', icon: FolderOpen },
     { name: 'Submissions', path: '/submissions', icon: Send },
     { name: 'Schedule', path: '/schedule', icon: Calendar },
+    { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
+    { name: 'Profile', path: '/profile', icon: User },
   ];
-
-  if (user?.isAdmin) {
-    navigationItems.push({ name: 'Admin', path: '/admin', icon: Shield });
-  }
 
   const handleLogout = () => {
     logout();
@@ -125,6 +124,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <p className="text-xs text-gray-400 truncate">
                       {user?.email || 'user@example.com'}
                     </p>
+                    {user?.isAdmin && (
+                      <p className="text-xs text-blue-400">Admin</p>
+                    )}
                   </div>
                 </div>
                 

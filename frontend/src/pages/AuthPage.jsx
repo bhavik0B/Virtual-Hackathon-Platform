@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Github, Mail, Code2 } from 'lucide-react';
+import { Github, Mail, Code2, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import Button from '../components/Button';
@@ -21,7 +21,8 @@ const AuthPage = () => {
         name: 'John Doe',
         email: 'john@example.com',
         avatar: 'JD',
-        isAdmin: false
+        isAdmin: false,
+        isMentor: false
       };
       login(userData);
       success('Welcome to HackCollab!');
@@ -39,11 +40,12 @@ const AuthPage = () => {
         name: 'Jane Smith',
         email: 'jane@example.com',
         avatar: 'JS',
-        isAdmin: true // Make this user admin for demo
+        isAdmin: true, // Make this user admin for demo
+        isMentor: true
       };
       login(userData);
       success('Welcome to HackCollab!');
-      navigate('/dashboard');
+      navigate('/admin');
       setLoading(false);
     }, 1500);
   };
@@ -101,8 +103,21 @@ const AuthPage = () => {
             <div className="w-full border-t border-slate-600" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-slate-800 text-gray-400">Demo Mode</span>
+            <span className="px-2 bg-slate-800 text-gray-400">or</span>
           </div>
+        </div>
+
+        {/* Registration Link */}
+        <div className="text-center mb-6">
+          <p className="text-sm text-gray-400 mb-3">
+            Don't have an account?
+          </p>
+          <Link to="/register">
+            <Button variant="outline" size="lg" className="w-full">
+              <UserPlus className="h-5 w-5 mr-3" />
+              Create New Account
+            </Button>
+          </Link>
         </div>
 
         <div className="text-center">
@@ -110,7 +125,7 @@ const AuthPage = () => {
             Click any button above to sign in with demo credentials
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Google login creates regular user • GitHub login creates admin user
+            Google: Regular user • GitHub: Admin user • Mentor: Mentor access
           </p>
         </div>
 
