@@ -72,3 +72,5 @@ dist/
 .cache/
 .eslintcache
 .stylelintcache
+
+.bfg-1.14.0.jar
