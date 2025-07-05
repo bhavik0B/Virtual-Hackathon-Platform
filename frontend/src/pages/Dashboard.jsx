@@ -17,49 +17,18 @@ import {
   Award,
   X
 } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
-import { jwtDecode } from 'jwt-decode';
 
 const Dashboard = () => {
-  const { user, login } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [showProjectsModal, setShowProjectsModal] = useState(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token');
-    console.log('Dashboard: Token found:', !!token, 'User logged in:', !!user);
-    
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        console.log('Dashboard: Decoded token:', decoded);
-        
-        // If user is not logged in, login them
-        if (!user) {
-          login(decoded);
-        }
-        
-        // Check if user is admin and redirect accordingly
-        if (decoded.isAdmin) {
-          console.log('Dashboard: User is admin, redirecting to /admin');
-          navigate('/admin', { replace: true });
-        } else {
-          console.log('Dashboard: User is not admin, redirecting to /dashboard');
-          navigate('/dashboard', { replace: true });
-        }
-      } catch (err) {
-        // If token is invalid, redirect to login
-        console.error('Dashboard: Token decode error:', err);
-        navigate('/auth');
-      }
-    }
-  }, [location.search, login, navigate, user]);
+  // Note: AuthContext now handles all token verification and redirects automatically
+  // This component will only render when user is properly authenticated
 
   const stats = [
     { label: 'Hours Coded', value: '156', icon: Clock, color: 'from-orange-500 to-red-500' },

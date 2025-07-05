@@ -20,13 +20,32 @@ import './index.css';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  
+  // Show loading state while authentication is being checked
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    );
+  }
+  
   return isAuthenticated ? children : <Navigate to="/auth" />;
 }
 
 // Admin Route Component - Standalone without Layout
 function AdminRoute({ children }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
+  
+  // Show loading state while authentication is being checked
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    );
+  }
   
   if (!isAuthenticated) {
     return <Navigate to="/auth" />;

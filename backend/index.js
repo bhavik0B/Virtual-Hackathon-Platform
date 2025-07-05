@@ -1,5 +1,24 @@
 require('dotenv').config();
 
+// Check required environment variables
+console.log('=== ENVIRONMENT VARIABLES CHECK ===');
+console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+console.log('SESSION_SECRET exists:', !!process.env.SESSION_SECRET);
+console.log('GOOGLE_CLIENT_ID exists:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('GOOGLE_CLIENT_SECRET exists:', !!process.env.GOOGLE_CLIENT_SECRET);
+
+// Check if required variables are missing
+if (!process.env.JWT_SECRET) {
+  console.error('ERROR: JWT_SECRET is not defined in environment variables!');
+  console.error('Please add JWT_SECRET to your .env file');
+}
+
+if (!process.env.MONGODB_URI) {
+  console.error('ERROR: MONGODB_URI is not defined in environment variables!');
+  console.error('Please add MONGODB_URI to your .env file');
+}
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -13,7 +32,17 @@ app.use(cors({
   origin: 'http://localhost:5173', // or your frontend URL
   credentials: true
 }));
+
 app.use(bodyParser.json());
+
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, {
+    body: req.body,
+    headers: req.headers['content-type']
+  });
+  next();
+});
 
 app.use(session({
   secret: process.env.SESSION_SECRET,
@@ -43,8 +72,28 @@ const userRoutes = require('./routes/userRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
 
-app.get('/', (res) => {
+app.get('/', (req, res) => {
   res.send('Hackathon Platform Backend is running');
+});
+
+// Test endpoint for debugging
+app.post('/api/test', (req, res) => {
+  console.log('Test endpoint hit with body:', req.body);
+  res.json({ message: 'Test endpoint working', received: req.body });
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    env: {
+      hasMongoDB: !!process.env.MONGODB_URI,
+      hasJWTSecret: !!process.env.JWT_SECRET,
+      hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+      hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
+    }
+  });
 });
 
 app.use('/api/hackathons', hackathonRoutes);

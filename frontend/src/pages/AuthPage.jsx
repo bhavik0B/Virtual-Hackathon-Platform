@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Github, Mail, Code2, UserPlus } from 'lucide-react';
@@ -9,8 +9,33 @@ import Button from '../components/Button';
 const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, user, loading: authLoading } = useAuth();
   const { success } = useToast();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      if (user.isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [authLoading, isAuthenticated, user, navigate]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render auth page if already authenticated
+  if (isAuthenticated && user) {
+    return null;
+  }
 
   const handleGithubLogin = async () => {
     setLoading(true);
@@ -24,9 +49,15 @@ const AuthPage = () => {
         isAdmin: true, // Make this user admin for demo
         isMentor: true
       };
-      login(userData);
       success('Welcome to HackCollab!');
-      navigate('/admin');
+      login(userData);
+      
+      // Redirect to appropriate dashboard
+      if (userData.isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
       setLoading(false);
     }, 1500);
   };

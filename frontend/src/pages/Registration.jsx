@@ -28,14 +28,13 @@ import axios from 'axios';
 
 const Registration = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, user, loading: authLoading } = useAuth();
   const { success, error } = useToast();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
     firstName: '',
@@ -57,6 +56,53 @@ const Registration = () => {
     experience: 'beginner',
     googleId: '',
   });
+
+  // Load registration data from localStorage if available
+  useEffect(() => {
+    const registrationData = localStorage.getItem('registrationData');
+    if (registrationData) {
+      try {
+        const data = JSON.parse(registrationData);
+        console.log('Registration: Loading registration data:', data);
+        setFormData(prev => ({
+          ...prev,
+          firstName: data.name?.split(' ')[0] || '',
+          lastName: data.name?.split(' ').slice(1).join(' ') || '',
+          email: data.email || '',
+          googleId: data.googleId || ''
+        }));
+        // Clear the registration data from localStorage
+        localStorage.removeItem('registrationData');
+      } catch (err) {
+        console.error('Registration: Error parsing registration data:', err);
+      }
+    }
+  }, []);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      if (user.isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [authLoading, isAuthenticated, user, navigate]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render registration page if already authenticated
+  if (isAuthenticated && user) {
+    return null;
+  }
 
   const skillOptions = [
     'JavaScript', 'Python', 'React', 'Node.js', 'TypeScript', 'Java',
@@ -132,17 +178,20 @@ const Registration = () => {
           error('Email is required');
           return false;
         }
-        if (!formData.password) {
-          error('Password is required');
-          return false;
-        }
-        if (formData.password.length < 6) {
-          error('Password must be at least 6 characters');
-          return false;
-        }
-        if (formData.password !== formData.confirmPassword) {
-          error('Passwords do not match');
-          return false;
+        // Password validation only for non-Google OAuth users
+        if (!formData.googleId) {
+          if (!formData.password) {
+            error('Password is required');
+            return false;
+          }
+          if (formData.password.length < 6) {
+            error('Password must be at least 6 characters');
+            return false;
+          }
+          if (formData.password !== formData.confirmPassword) {
+            error('Passwords do not match');
+            return false;
+          }
         }
         return true;
       case 2:
@@ -175,7 +224,8 @@ const Registration = () => {
 
     try {
       console.log('Submitting registration:', formData);
-      const res = await axios.post('http://localhost:5000/api/users/register', {
+      
+      const requestData = {
         googleId: formData.googleId,
         email: formData.email,
         firstName: formData.firstName,
@@ -190,14 +240,36 @@ const Registration = () => {
         skills: formData.skills,
         interests: formData.interests,
         experience: formData.experience,
+      };
+      
+      console.log('Request data being sent:', requestData);
+      console.log('Required fields check:', {
+        email: !!requestData.email,
+        firstName: !!requestData.firstName,
+        lastName: !!requestData.lastName,
+        password: !!requestData.password
       });
+      
+      const res = await axios.post('http://localhost:5000/api/users/register', requestData);
       console.log('Registration response:', res);
 
       if (res.status === 201) {
-        login(res.data.user);
+        // New user registration
         success('Registration successful! Welcome to HackCollab!');
+        login(res.data.user);
         
-        // Check if user is admin and redirect accordingly
+        // Redirect to appropriate dashboard
+        if (res.data.user.isAdmin) {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      } else if (res.status === 200 && res.data.isExistingUser) {
+        // Existing user found, log them in
+        success('Welcome back! You are already registered.');
+        login(res.data.user);
+        
+        // Redirect to appropriate dashboard
         if (res.data.user.isAdmin) {
           navigate('/admin');
         } else {
@@ -208,30 +280,27 @@ const Registration = () => {
       }
     } catch (err) {
       console.error('Registration error:', err);
-      error(err.response?.data?.message || 'Registration failed');
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
+      
+      // Show more detailed error message
+      if (err.response?.data?.message) {
+        error(err.response.data.message);
+      } else if (err.response?.data?.errors) {
+        // Handle validation errors array
+        const errorMessages = Array.isArray(err.response.data.errors) 
+          ? err.response.data.errors.join(', ') 
+          : err.response.data.errors;
+        error(errorMessages);
+      } else {
+        error('Registration failed. Please check your input and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-      try {
-        const decoded = jwt_decode.default(token);
-        setFormData(prev => ({
-          ...prev,
-          email: decoded.email || '',
-          firstName: decoded.name ? decoded.name.split(' ')[0] : '',
-          lastName: decoded.name ? decoded.name.split(' ').slice(1).join(' ') : '',
-          googleId: decoded.googleId || '',
-        }));
-      } catch (err) {
-        // handle error
-      }
-    }
-  }, []);
+
 
   const renderStep1 = () => (
     <div className="space-y-4">
@@ -261,41 +330,51 @@ const Registration = () => {
         required
       />
       
-      <div className="relative">
-        <InputField
-          label="Password"
-          type={showPassword ? 'text' : 'password'}
-          placeholder="Create a password"
-          value={formData.password}
-          onChange={(e) => handleInputChange('password', e.target.value)}
-          required
-        />
-        <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-9 text-gray-400 hover:text-white"
-        >
-          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
-      
-      <div className="relative">
-        <InputField
-          label="Confirm Password"
-          type={showConfirmPassword ? 'text' : 'password'}
-          placeholder="Confirm your password"
-          value={formData.confirmPassword}
-          onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-          required
-        />
-        <button
-          type="button"
-          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-          className="absolute right-3 top-9 text-gray-400 hover:text-white"
-        >
-          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
+      {!formData.googleId ? (
+        <>
+          <div className="relative">
+            <InputField
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Create a password"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-9 text-gray-400 hover:text-white"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          
+          <div className="relative">
+            <InputField
+              label="Confirm Password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              placeholder="Confirm your password"
+              value={formData.confirmPassword}
+              onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-9 text-gray-400 hover:text-white"
+            >
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <p className="text-blue-300 text-sm">
+            ✓ You're signing up with Google - no password needed!
+          </p>
+        </div>
+      )}
     </div>
   );
 
@@ -439,6 +518,14 @@ const Registration = () => {
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Create Your Account</h1>
             <p className="text-gray-400">Join the community of innovative developers</p>
+            {formData.googleId && (
+              <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-green-300 text-sm flex items-center justify-center">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Google account connected: {formData.email}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Progress Bar */}
