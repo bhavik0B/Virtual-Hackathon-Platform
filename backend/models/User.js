@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   googleId: { type: String, unique: true, sparse: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String }, // Optional for Google OAuth users
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   name: { type: String },
@@ -17,7 +16,7 @@ const userSchema = new mongoose.Schema({
   interests: [{ type: String }],
   experience: { type: String, enum: ['beginner', 'intermediate', 'expert'], default: 'beginner' },
   isAdmin: { type: Boolean, default: false },
-  isMentor: { type: Boolean, default: false },
+  refreshToken: { type: String },
   createdAt: { type: Date, default: Date.now }
 }, { strict: false });
 

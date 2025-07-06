@@ -46,8 +46,7 @@ const TopNav = ({ onMenuClick }) => {
 
           <div className="flex items-center space-x-3">
             <div className="hidden sm:block text-right">
-              <p className="text-sm font-medium text-white">{user?.name}</p>
-              <p className="text-xs text-gray-400">{user?.email}</p>
+              <p className="text-sm font-medium text-white">{user?.firstName}</p>
             </div>
             <button
               onClick={handleProfileClick}

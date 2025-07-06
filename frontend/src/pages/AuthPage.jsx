@@ -46,11 +46,10 @@ const AuthPage = () => {
         name: 'Jane Smith',
         email: 'jane@example.com',
         avatar: 'JS',
-        isAdmin: true, // Make this user admin for demo
-        isMentor: true
+        isAdmin: true
       };
       success('Welcome to HackCollab!');
-      login(userData);
+      login(userData, null, null); // Demo login without tokens
       
       // Redirect to appropriate dashboard
       if (userData.isAdmin) {
@@ -137,7 +136,7 @@ const AuthPage = () => {
             Click any button above to sign in with demo credentials
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Google: Regular user • GitHub: Admin user • Mentor: Mentor access
+            Google: Regular user • GitHub: Admin user
           </p>
         </div>
 

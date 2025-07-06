@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.3.0",
+    "@monaco-editor/react": "^4.7.0",
     "axios": "^1.10.0",
     "framer-motion": "^11.3.19",
     "jsonwebtoken": "^9.0.2",

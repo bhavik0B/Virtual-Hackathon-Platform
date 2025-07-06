@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import Editor from '@monaco-editor/react';
 import { 
   Play, 
   Save, 
@@ -59,10 +60,13 @@ const EditorWorkspace = () => {
   const [showTerminal, setShowTerminal] = useState(true);
   const [terminalTab, setTerminalTab] = useState('terminal');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [editorTheme, setEditorTheme] = useState('vs-dark');
+  const [fontSize, setFontSize] = useState(14);
   const chatEndRef = useRef(null);
+  const editorRef = useRef(null);
   const { success } = useToast();
 
-  // File system state
+  // File system state with more realistic content
   const [fileTree, setFileTree] = useState([
     { 
       name: 'src', 
@@ -90,6 +94,15 @@ const EditorWorkspace = () => {
             { name: 'Dashboard.jsx', type: 'file', hasErrors: false, language: 'javascript' },
             { name: 'Profile.jsx', type: 'file', hasErrors: false, language: 'javascript' }
           ]
+        },
+        { 
+          name: 'utils', 
+          type: 'folder', 
+          expanded: false,
+          children: [
+            { name: 'api.js', type: 'file', hasErrors: false, language: 'javascript' },
+            { name: 'helpers.js', type: 'file', hasErrors: false, language: 'javascript' }
+          ]
         }
       ]
     },
@@ -103,30 +116,56 @@ const EditorWorkspace = () => {
       ]
     },
     { name: 'package.json', type: 'file', hasErrors: false, language: 'json' },
-    { name: 'README.md', type: 'file', hasErrors: false, language: 'markdown' }
+    { name: 'README.md', type: 'file', hasErrors: false, language: 'markdown' },
+    { name: 'vite.config.js', type: 'file', hasErrors: false, language: 'javascript' }
   ]);
 
-  // Code content
-  const [codeContent, setCodeContent] = useState(`import React, { useState, useEffect } from 'react';
+  // File contents mapping
+  const [fileContents, setFileContents] = useState({
+    'App.jsx': `import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Header from './components/Header';
+import Sidebar from './components/Sidebar';
+import Dashboard from './pages/Dashboard';
 import './App.css';
 
 function App() {
   const [count, setCount] = useState(0);
   const [message, setMessage] = useState('Welcome to HackCollab!');
   const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState(null);
 
   // Effect hook for component lifecycle
   useEffect(() => {
-    console.log('Component mounted');
-    return () => console.log('Component unmounted');
+    console.log('App component mounted');
+    fetchUserData();
+    return () => console.log('App component unmounted');
   }, []);
+
+  const fetchUserData = async () => {
+    setIsLoading(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setUser({
+        id: 1,
+        name: 'John Doe',
+        email: 'john@example.com'
+      });
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleIncrement = async () => {
     setIsLoading(true);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     setCount(prevCount => prevCount + 1);
+    setMessage(\Count updated to \${count + 1}!\);
     setIsLoading(false);
   };
 
@@ -135,49 +174,455 @@ function App() {
     setMessage('Counter reset!');
   };
 
+  if (isLoading && !user) {
+    return (
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
   return (
-    <motion.div 
-      className="app-container"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <header className="app-header">
-        <h1 className="title">HackCollab Project</h1>
-        <p className="subtitle">{message}</p>
-      </header>
-      
-      <main className="app-main">
-        <section className="counter-section">
-          <h2>Counter: {count}</h2>
-          <div className="button-group">
-            <button 
-              onClick={handleIncrement}
-              disabled={isLoading}
-              className="btn btn-primary"
-            >
-              {isLoading ? 'Loading...' : 'Increment'}
-            </button>
-            <button 
-              onClick={handleReset}
-              className="btn btn-secondary"
-            >
-              Reset
-            </button>
-          </div>
-        </section>
-      </main>
-    </motion.div>
+    <Router>
+      <motion.div 
+        className="app-container"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Header user={user} />
+        
+        <div className="app-layout">
+          <Sidebar />
+          
+          <main className="app-main">
+            <Routes>
+              <Route path="/" element={
+                <section className="counter-section">
+                  <h1 className="title">HackCollab Project</h1>
+                  <p className="subtitle">{message}</p>
+                  
+                  <div className="counter-display">
+                    <h2>Counter: {count}</h2>
+                  </div>
+                  
+                  <div className="button-group">
+                    <button 
+                      onClick={handleIncrement}
+                      disabled={isLoading}
+                      className="btn btn-primary"
+                    >
+                      {isLoading ? 'Loading...' : 'Increment'}
+                    </button>
+                    <button 
+                      onClick={handleReset}
+                      className="btn btn-secondary"
+                      disabled={isLoading}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  
+                  {user && (
+                    <div className="user-info">
+                      <h3>Welcome, {user.name}!</h3>
+                      <p>Email: {user.email}</p>
+                    </div>
+                  )}
+                </section>
+              } />
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Routes>
+          </main>
+        </div>
+      </motion.div>
+    </Router>
   );
 }
 
-export default App;`);
+export default App;`,
 
-  // Open tabs
+    'index.css': `/* Modern CSS Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+body {
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+input, button, textarea, select {
+  font: inherit;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+
+/* App Styles */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-layout {
+  display: flex;
+  flex: 1;
+}
+
+.app-main {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.counter-section {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 2rem;
+}
+
+.title {
+  font-size: 3rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  color: #94a3b8;
+  margin-bottom: 2rem;
+}
+
+.counter-display {
+  margin: 2rem 0;
+  padding: 2rem;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 1rem;
+  border: 1px solid #334155;
+}
+
+.counter-display h2 {
+  font-size: 2rem;
+  color: #f1f5f9;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+}
+
+.btn-secondary {
+  background: #475569;
+  color: white;
+  border: 1px solid #64748b;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #64748b;
+  transform: translateY(-2px);
+}
+
+.user-info {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.user-info h3 {
+  color: #60a5fa;
+  margin-bottom: 0.5rem;
+}
+
+.user-info p {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .title {
+    font-size: 2rem;
+  }
+  
+  .button-group {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .btn {
+    width: 200px;
+  }
+}`,
+
+    'package.json': `{
+  "name": "hackathon-platform",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "framer-motion": "^11.3.19",
+    "lucide-react": "^0.427.0",
+    "react-resizable-panels": "^2.0.19",
+    "@monaco-editor/react": "^4.6.0",
+    "monaco-editor": "^0.44.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.1",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.9.1",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "globals": "^15.9.0",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.9",
+    "vite": "^5.4.2"
+  }
+}`,
+
+    'components/Header.jsx': `import React from 'react';
+import { User, Bell, Settings } from 'lucide-react';
+
+const Header = ({ user }) => {
+  return (
+    <header className="header">
+      <div className="header-content">
+        <div className="logo">
+          <h1>HackCollab</h1>
+        </div>
+        
+        <div className="header-actions">
+          <button className="icon-btn">
+            <Bell size={20} />
+          </button>
+          <button className="icon-btn">
+            <Settings size={20} />
+          </button>
+          {user && (
+            <div className="user-menu">
+              <User size={20} />
+              <span>{user.name}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default Header;`,
+
+    'components/Sidebar.jsx': `import React, { useState } from 'react';
+import { Home, Users, Code, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const Sidebar = () => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const menuItems = [
+    { icon: Home, label: 'Dashboard', path: '/' },
+    { icon: Users, label: 'Teams', path: '/teams' },
+    { icon: Code, label: 'Projects', path: '/projects' },
+    { icon: Settings, label: 'Settings', path: '/settings' }
+  ];
+
+  return (
+    <aside className={\sidebar \${isCollapsed ? 'collapsed' : ''}\}>
+      <div className="sidebar-header">
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="collapse-btn"
+        >
+          {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+        </button>
+      </div>
+      
+      <nav className="sidebar-nav">
+        {menuItems.map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <a 
+              key={index}
+              href={item.path}
+              className="nav-item"
+              title={isCollapsed ? item.label : ''}
+            >
+              <Icon size={20} />
+              {!isCollapsed && <span>{item.label}</span>}
+            </a>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+};
+
+export default Sidebar;`,
+
+    'README.md': `# HackCollab Platform
+
+A modern hackathon collaboration platform built with React and Vite.
+
+## Features
+
+- 🚀 Real-time collaboration
+- 👥 Team management
+- 💻 Integrated code editor
+- 🎯 Project submissions
+- 🏆 Leaderboards
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+\\\`bash
+# Clone the repository
+git clone https://github.com/your-username/hackcollab.git
+
+# Navigate to project directory
+cd hackcollab
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+\\\`
+
+### Available Scripts
+
+- \npm run dev\ - Start development server
+- \npm run build\ - Build for production
+- \npm run preview\ - Preview production build
+- \npm run lint\ - Run ESLint
+
+## Tech Stack
+
+- *Frontend*: React 18, Vite
+- *Styling*: Tailwind CSS
+- *Icons*: Lucide React
+- *Animation*: Framer Motion
+- *Editor*: Monaco Editor
+
+## Project Structure
+
+\\\`
+src/
+├── components/     # Reusable components
+├── pages/         # Page components
+├── contexts/      # React contexts
+├── layouts/       # Layout components
+├── utils/         # Utility functions
+└── assets/        # Static assets
+\\\`
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (\git checkout -b feature/amazing-feature\)
+3. Commit your changes (\git commit -m 'Add some amazing feature'\)
+4. Push to the branch (\git push origin feature/amazing-feature\)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License.
+`
+  });
+
+  // Open tabs with file contents
   const [openTabs, setOpenTabs] = useState([
-    { name: 'App.jsx', hasErrors: false, language: 'javascript', modified: true },
+    { name: 'App.jsx', hasErrors: false, language: 'javascript', modified: false },
     { name: 'index.css', hasErrors: false, language: 'css', modified: false },
-    { name: 'Sidebar.jsx', hasErrors: true, language: 'javascript', modified: true }
+    { name: 'components/Sidebar.jsx', hasErrors: true, language: 'javascript', modified: false }
   ]);
 
   // Chat messages
@@ -236,6 +681,153 @@ export default App;`);
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
+  // Monaco Editor configuration
+  const editorOptions = {
+    selectOnLineNumbers: true,
+    roundedSelection: false,
+    readOnly: false,
+    cursorStyle: 'line',
+    automaticLayout: true,
+    fontSize: fontSize,
+    fontFamily: 'JetBrains Mono, Fira Code, Monaco, Consolas, monospace',
+    minimap: {
+      enabled: true
+    },
+    scrollBeyondLastLine: false,
+    wordWrap: 'on',
+    theme: editorTheme,
+    tabSize: 2,
+    insertSpaces: true,
+    detectIndentation: false,
+    folding: true,
+    lineNumbers: 'on',
+    glyphMargin: true,
+    contextmenu: true,
+    mouseWheelZoom: true,
+    smoothScrolling: true,
+    cursorBlinking: 'blink',
+    renderWhitespace: 'selection',
+    renderControlCharacters: false,
+    fontLigatures: true,
+    bracketPairColorization: {
+      enabled: true
+    },
+    guides: {
+      bracketPairs: true,
+      indentation: true
+    },
+    suggest: {
+      showKeywords: true,
+      showSnippets: true,
+      showClasses: true,
+      showFunctions: true,
+      showVariables: true
+    }
+  };
+
+  const handleEditorDidMount = (editor, monaco) => {
+    editorRef.current = editor;
+    
+    // Configure Monaco themes
+    monaco.editor.defineTheme('hackcollab-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '569CD6' },
+        { token: 'string', foreground: 'CE9178' },
+        { token: 'number', foreground: 'B5CEA8' },
+        { token: 'regexp', foreground: 'D16969' },
+        { token: 'type', foreground: '4EC9B0' },
+        { token: 'class', foreground: '4EC9B0' },
+        { token: 'function', foreground: 'DCDCAA' },
+        { token: 'variable', foreground: '9CDCFE' },
+        { token: 'constant', foreground: '4FC1FF' }
+      ],
+      colors: {
+        'editor.background': '#1e1e1e',
+        'editor.foreground': '#d4d4d4',
+        'editorLineNumber.foreground': '#858585',
+        'editorLineNumber.activeForeground': '#c6c6c6',
+        'editor.selectionBackground': '#264f78',
+        'editor.selectionHighlightBackground': '#add6ff26',
+        'editorCursor.foreground': '#aeafad',
+        'editor.findMatchBackground': '#515c6a',
+        'editor.findMatchHighlightBackground': '#ea5c0055',
+        'editor.linkedEditingBackground': '#f00'
+      }
+    });
+
+    // Set custom theme
+    monaco.editor.setTheme('hackcollab-dark');
+
+    // Add keyboard shortcuts
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      handleSaveFile();
+    });
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR, () => {
+      handleRunCode();
+    });
+
+    // Add auto-completion for React
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.Latest,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: 'React',
+      allowJs: true,
+      typeRoots: ['node_modules/@types']
+    });
+
+    // Add React snippets
+    monaco.languages.registerCompletionItemProvider('javascript', {
+      provideCompletionItems: (model, position) => {
+        const suggestions = [
+          {
+            label: 'useState',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'const [${1:state}, set${1/(.*)/${1:/capitalize}/}] = useState(${2:initialValue});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'React useState hook'
+          },
+          {
+            label: 'useEffect',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'useEffect(() => {\n\t${1:// effect}\n\treturn () => {\n\t\t${2:// cleanup}\n\t};\n}, [${3:dependencies}]);',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'React useEffect hook'
+          },
+          {
+            label: 'component',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'const ${1:ComponentName} = () => {\n\treturn (\n\t\t<div>\n\t\t\t${2:content}\n\t\t</div>\n\t);\n};\n\nexport default ${1:ComponentName};',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'React functional component'
+          }
+        ];
+        return { suggestions };
+      }
+    });
+  };
+
+  const handleEditorChange = (value) => {
+    // Update file content
+    setFileContents(prev => ({
+      ...prev,
+      [activeTab]: value
+    }));
+
+    // Mark tab as modified
+    setOpenTabs(prev => prev.map(tab => 
+      tab.name === activeTab ? { ...tab, modified: true } : tab
+    ));
+  };
+
   const toggleFolder = (path) => {
     const updateTree = (items) => {
       return items.map(item => {
@@ -255,8 +847,48 @@ export default App;`);
     const existingTab = openTabs.find(tab => tab.name === fileName);
     if (!existingTab) {
       setOpenTabs(prev => [...prev, { name: fileName, hasErrors, language, modified: false }]);
+      
+      // Initialize file content if not exists
+      if (!fileContents[fileName]) {
+        setFileContents(prev => ({
+          ...prev,
+          [fileName]: getDefaultContent(fileName, language)
+        }));
+      }
     }
     setActiveTab(fileName);
+  };
+
+  const getDefaultContent = (fileName, language) => {
+    if (language === 'javascript' && fileName.endsWith('.jsx')) {
+      return `import React from 'react';
+
+const ${fileName.replace('.jsx', '')} = () => {
+  return (
+    <div>
+      <h1>${fileName.replace('.jsx', '')} Component</h1>
+    </div>
+  );
+};
+
+export default ${fileName.replace('.jsx', '')};`;
+    }
+    if (language === 'css') {
+      return `/* ${fileName} */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}`;
+    }
+    if (language === 'json') {
+      return `{
+  "name": "example",
+  "version": "1.0.0"
+}`;
+    }
+    return // ${fileName}\n\n;
   };
 
   const closeTab = (fileName) => {
@@ -360,6 +992,17 @@ export default App;`);
       case 'json': return 'text-[#89e051]';
       case 'markdown': return 'text-[#083fa1]';
       default: return 'text-[#cccccc]';
+    }
+  };
+
+  const getMonacoLanguage = (language) => {
+    switch (language) {
+      case 'javascript': return 'javascript';
+      case 'css': return 'css';
+      case 'html': return 'html';
+      case 'json': return 'json';
+      case 'markdown': return 'markdown';
+      default: return 'javascript';
     }
   };
 
@@ -497,28 +1140,17 @@ export default App;`);
                         ))}
                       </div>
 
-                      {/* Editor Content */}
-                      <div className="flex-1 flex overflow-hidden">
-                        {/* Line Numbers */}
-                        <div className="w-12 bg-[#1e1e1e] text-[#858585] text-xs font-mono flex flex-col items-end pr-2 pt-2 border-r border-[#2d2d30] flex-shrink-0">
-                          {codeContent.split('\n').map((_, index) => (
-                            <div key={index} className="h-5 leading-5">
-                              {index + 1}
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Code Area */}
-                        <div className="flex-1 relative">
-                          <textarea
-                            value={codeContent}
-                            onChange={(e) => setCodeContent(e.target.value)}
-                            className="w-full h-full p-2 bg-[#1e1e1e] border-none outline-none resize-none text-[#d4d4d4] font-mono text-sm leading-5 selection:bg-[#264f78]"
-                            style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace" }}
-                            spellCheck={false}
-                            placeholder="Start typing your code..."
-                          />
-                        </div>
+                      {/* Monaco Editor */}
+                      <div className="flex-1 overflow-hidden">
+                        <Editor
+                          height="100%"
+                          language={getMonacoLanguage(openTabs.find(tab => tab.name === activeTab)?.language || 'javascript')}
+                          value={fileContents[activeTab] || ''}
+                          onChange={handleEditorChange}
+                          onMount={handleEditorDidMount}
+                          options={editorOptions}
+                          theme="hackcollab-dark"
+                        />
                       </div>
                     </div>
                   </Panel>
@@ -635,13 +1267,13 @@ export default App;`);
       {/* Status Bar */}
       <div className="h-6 bg-[#007acc] text-white text-xs flex items-center px-3 justify-between flex-shrink-0">
         <div className="flex items-center space-x-4">
-          <span>✓ Prettier</span>
+          <span>✓ Monaco Editor</span>
           <span>UTF-8</span>
           <span>LF</span>
-          <span>JavaScript</span>
+          <span>{openTabs.find(tab => tab.name === activeTab)?.language || 'JavaScript'}</span>
         </div>
         <div className="flex items-center space-x-4">
-          <span>Ln 15, Col 23</span>
+          <span>Ln 1, Col 1</span>
           <span>Spaces: 2</span>
           <div className="flex items-center space-x-1">
             <Users className="h-3 w-3" />

@@ -181,7 +181,7 @@ const Dashboard = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {user?.name}! 👋
+              Welcome back, {user?.firstName}! 👋
             </h1>
             <p className="text-blue-100 text-lg">
               Ready to build something amazing today?

@@ -62,27 +62,40 @@ router.get('/auth/google/callback', async (req, res) => {
       
       console.log('JWT_SECRET length:', process.env.JWT_SECRET.length);
       
-      // User exists, generate JWT and redirect to dashboard
-      const userTokenPayload = { 
+      // User exists, generate access and refresh tokens
+      const accessTokenPayload = { 
         id: user._id, 
         email: user.email, 
         name: user.name || `${user.firstName} ${user.lastName}`,
         isAdmin: user.isAdmin,
-        isMentor: user.isMentor
+        type: 'access'
       };
       
-      console.log('User token payload:', userTokenPayload);
+      const refreshTokenPayload = {
+        id: user._id,
+        type: 'refresh'
+      };
       
-      const userToken = jwt.sign(userTokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+      console.log('Access token payload:', accessTokenPayload);
+      console.log('Refresh token payload:', refreshTokenPayload);
       
-      console.log('User token generated for existing user');
-      console.log('Token length:', userToken.length);
-      console.log('Token preview:', userToken.substring(0, 50) + '...');
+      const accessToken = jwt.sign(accessTokenPayload, process.env.JWT_SECRET, { expiresIn: '15m' });
+      const refreshToken = jwt.sign(refreshTokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
       
-      // Redirect to appropriate dashboard based on user role
+      console.log('Access token generated for existing user');
+      console.log('Refresh token generated for existing user');
+      console.log('Access token length:', accessToken.length);
+      console.log('Refresh token length:', refreshToken.length);
+      
+      // Store refresh token in database (you might want to add a refreshTokens collection)
+      // For now, we'll store it in user document
+      user.refreshToken = refreshToken;
+      await user.save();
+      
+      // Redirect to appropriate dashboard based on user role with both tokens
       const redirectUrl = user.isAdmin 
-        ? `http://localhost:5173/admin?token=${userToken}`
-        : `http://localhost:5173/dashboard?token=${userToken}`;
+        ? `http://localhost:5173/admin?accessToken=${accessToken}&refreshToken=${refreshToken}`
+        : `http://localhost:5173/dashboard?accessToken=${accessToken}&refreshToken=${refreshToken}`;
       
       console.log('Redirecting to:', redirectUrl);
       return res.redirect(redirectUrl);
@@ -100,7 +113,8 @@ router.get('/auth/google/callback', async (req, res) => {
       const registrationToken = jwt.sign({ 
         googleId: data.id, 
         email: data.email, 
-        name: data.name 
+        name: data.name,
+        type: 'registration'
       }, process.env.JWT_SECRET, { expiresIn: '1h' });
       
       console.log('Registration token generated for new user');
@@ -126,20 +140,13 @@ router.post('/register', async (req, res) => {
   
   try {
     
-    const { googleId, email, name, firstName, lastName, password, bio, location, website, github, linkedin, skills, interests, experience } = req.body;
+    const { googleId, email, name, firstName, lastName, bio, location, website, github, linkedin, skills, interests, experience } = req.body;
     
-    // Validate required fields (password is optional for Google OAuth users)
+    // Validate required fields
     if (!email || !firstName || !lastName) {
-      console.log('Missing required fields:', { email: !!email, firstName: !!firstName, lastName: !!lastName, password: !!password });
+      console.log('Missing required fields:', { email: !!email, firstName: !!firstName, lastName: !!lastName });
       return res.status(400).json({ 
         message: 'Missing required fields: email, firstName, lastName' 
-      });
-    }
-    
-    // Password is required only for non-Google OAuth users
-    if (!googleId && !password) {
-      return res.status(400).json({ 
-        message: 'Password is required for non-Google OAuth registration' 
       });
     }
     
@@ -148,19 +155,32 @@ router.post('/register', async (req, res) => {
     if (user) {
       console.log('User already exists by email:', email);
       
-      // Generate JWT token for existing user and return success
-      const token = jwt.sign({ 
+      // Generate access and refresh tokens for existing user
+      const accessTokenPayload = { 
         id: user._id, 
         email: user.email, 
         name: user.name || `${user.firstName} ${user.lastName}`,
         isAdmin: user.isAdmin,
-        isMentor: user.isMentor
-      }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        type: 'access'
+      };
+      
+      const refreshTokenPayload = {
+        id: user._id,
+        type: 'refresh'
+      };
+      
+      const accessToken = jwt.sign(accessTokenPayload, process.env.JWT_SECRET, { expiresIn: '15m' });
+      const refreshToken = jwt.sign(refreshTokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+      
+      // Store refresh token in database
+      user.refreshToken = refreshToken;
+      await user.save();
       
       return res.status(200).json({ 
         message: 'User already exists, logged in successfully', 
         user, 
-        token,
+        accessToken,
+        refreshToken,
         isExistingUser: true 
       });
     }
@@ -172,7 +192,6 @@ router.post('/register', async (req, res) => {
       name: name || `${firstName} ${lastName}`,
       firstName,
       lastName,
-      password,
       bio: bio || '',
       location: location || '',
       website: website || '',
@@ -194,18 +213,35 @@ router.post('/register', async (req, res) => {
       return res.status(500).json({ message: 'Server configuration error' });
     }
     
-    // Generate JWT token with user data including isAdmin
-    const token = jwt.sign({ 
+    // Generate access and refresh tokens with user data
+    const accessTokenPayload = { 
       id: user._id, 
       email: user.email, 
       name: user.name,
       isAdmin: user.isAdmin,
-      isMentor: user.isMentor
-    }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      type: 'access'
+    };
     
-    console.log('JWT token generated successfully');
+    const refreshTokenPayload = {
+      id: user._id,
+      type: 'refresh'
+    };
     
-    return res.status(201).json({ message: 'User registered', user, token });
+    const accessToken = jwt.sign(accessTokenPayload, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign(refreshTokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+    
+    // Store refresh token in database
+    user.refreshToken = refreshToken;
+    await user.save();
+    
+    console.log('Access and refresh tokens generated successfully');
+    
+    return res.status(201).json({ 
+      message: 'User registered', 
+      user, 
+      accessToken,
+      refreshToken 
+    });
   } catch (err) {
     console.error('Registration error:', err);
     console.error('Error name:', err.name);
@@ -233,56 +269,71 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login endpoint for email/password authentication
-router.post('/login', async (req, res) => {
-  console.log('=== LOGIN ENDPOINT HIT ===');
-  console.log('Login request body:', req.body);
+
+
+// Refresh token endpoint
+router.post('/refresh', async (req, res) => {
+  console.log('=== REFRESH TOKEN ENDPOINT HIT ===');
   
   try {
-    const { email, password } = req.body;
+    const { refreshToken } = req.body;
     
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({ 
-        message: 'Email and password are required' 
-      });
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Refresh token is required' });
     }
     
-    // Find user by email
-    const user = await User.findOne({ email });
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ message: 'Server configuration error - JWT_SECRET missing' });
+    }
+    
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    console.log('Refresh token decoded:', decoded);
+    
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({ message: 'Invalid token type' });
+    }
+    
+    // Find user by ID
+    const user = await User.findById(decoded.id);
     if (!user) {
-      return res.status(401).json({ 
-        message: 'Invalid email or password' 
-      });
+      return res.status(401).json({ message: 'User not found' });
     }
     
-    // Check password (in a real app, you'd hash and compare passwords)
-    if (user.password !== password) {
-      return res.status(401).json({ 
-        message: 'Invalid email or password' 
-      });
+    // Check if refresh token matches stored token
+    if (user.refreshToken !== refreshToken) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
     }
     
-    // Generate JWT token
-    const token = jwt.sign({ 
+    // Generate new access token
+    const accessTokenPayload = { 
       id: user._id, 
       email: user.email, 
       name: user.name || `${user.firstName} ${user.lastName}`,
       isAdmin: user.isAdmin,
-      isMentor: user.isMentor
-    }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      type: 'access'
+    };
     
-    console.log('User logged in successfully:', user.email);
+    const newAccessToken = jwt.sign(accessTokenPayload, process.env.JWT_SECRET, { expiresIn: '15m' });
+    
+    console.log('New access token generated');
     
     return res.status(200).json({ 
-      message: 'Login successful', 
-      user, 
-      token 
+      message: 'Token refreshed successfully', 
+      accessToken: newAccessToken 
     });
     
   } catch (err) {
-    console.error('Login error:', err);
-    return res.status(500).json({ message: 'Login failed', error: err.message });
+    console.error('Refresh token error:', err);
+    
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid refresh token', error: err.message });
+    } else if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Refresh token expired', error: err.message });
+    } else {
+      return res.status(401).json({ message: 'Token refresh failed', error: err.message });
+    }
   }
 });
 
@@ -314,41 +365,44 @@ router.get('/verify', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Token decoded successfully:', decoded);
     
-    // Handle both types of tokens: existing user tokens (with id) and registration tokens (with googleId)
-    let user = null;
-    
-    if (decoded.id) {
-      // Existing user token - look up by user ID
-      console.log('Looking for user with ID:', decoded.id);
-      user = await User.findById(decoded.id);
-    } else if (decoded.googleId) {
+    // Check token type
+    if (decoded.type === 'access') {
+      // Access token - look up by user ID
+      console.log('Access token detected, looking for user with ID:', decoded.id);
+      const user = await User.findById(decoded.id);
+      
+      if (!user) {
+        console.log('User not found in database');
+        return res.status(401).json({ message: 'User not found' });
+      }
+      
+      console.log('Returning user data:', {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        isAdmin: user.isAdmin
+      });
+      return res.status(200).json({ 
+        message: 'Token valid', 
+        user 
+      });
+    } else if (decoded.type === 'registration') {
       // Registration token - look up by email (since user doesn't exist yet)
       console.log('Registration token detected, looking for user with email:', decoded.email);
-      user = await User.findOne({ email: decoded.email });
-    }
-    
-    console.log('User found in database:', !!user);
-    
-    if (!user) {
-      console.log('User not found in database');
-      // For registration tokens, this is expected - user doesn't exist yet
-      if (decoded.googleId) {
+      const user = await User.findOne({ email: decoded.email });
+      
+      if (!user) {
         console.log('Registration token - user not found (expected for new users)');
         return res.status(401).json({ message: 'Registration token - user not found yet' });
       }
-      return res.status(401).json({ message: 'User not found' });
+      
+      return res.status(401).json({ message: 'User already exists' });
+    } else {
+      console.error('Invalid token type:', decoded.type);
+      return res.status(401).json({ message: 'Invalid token type' });
     }
     
-    console.log('Returning user data:', {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      isAdmin: user.isAdmin
-    });
-    return res.status(200).json({ 
-      message: 'Token valid', 
-      user 
-    });
+
     
   } catch (err) {
     console.error('Token verification error:', err);
@@ -459,22 +513,34 @@ router.get('/test-oauth-token', async (req, res) => {
       return res.status(404).json({ error: 'No users found in database' });
     }
     
-    // Generate token with same format as Google OAuth callback
-    const tokenPayload = { 
+    // Generate tokens with same format as Google OAuth callback
+    const accessTokenPayload = { 
       id: user._id, 
       email: user.email, 
       name: user.name || `${user.firstName} ${user.lastName}`,
       isAdmin: user.isAdmin,
-      isMentor: user.isMentor
+      type: 'access'
     };
     
-    console.log('OAuth token payload:', tokenPayload);
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('OAuth token generated:', token);
+    const refreshTokenPayload = {
+      id: user._id,
+      type: 'refresh'
+    };
+    
+    console.log('OAuth access token payload:', accessTokenPayload);
+    console.log('OAuth refresh token payload:', refreshTokenPayload);
+    
+    const accessToken = jwt.sign(accessTokenPayload, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign(refreshTokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+    
+    console.log('OAuth access token generated:', accessToken);
+    console.log('OAuth refresh token generated:', refreshToken);
     
     // Test verification
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('OAuth token decoded:', decoded);
+    const decodedAccess = jwt.verify(accessToken, process.env.JWT_SECRET);
+    const decodedRefresh = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    console.log('OAuth access token decoded:', decodedAccess);
+    console.log('OAuth refresh token decoded:', decodedRefresh);
     
     res.json({
       message: 'OAuth token test completed',
@@ -484,9 +550,11 @@ router.get('/test-oauth-token', async (req, res) => {
         name: user.name,
         isAdmin: user.isAdmin
       },
-      token,
-      decoded,
-      testUrl: `http://localhost:5173/dashboard?token=${token}`
+      accessToken,
+      refreshToken,
+      decodedAccess,
+      decodedRefresh,
+      testUrl: `http://localhost:5173/dashboard?accessToken=${accessToken}&refreshToken=${refreshToken}`
     });
     
   } catch (error) {

@@ -3,9 +3,6 @@ import { motion } from 'framer-motion';
 import { 
   User, 
   Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
   Code2, 
   Github, 
   Linkedin, 
@@ -23,8 +20,7 @@ import Button from '../components/Button';
 import InputField from '../components/InputField';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import * as jwt_decode from 'jwt-decode';
-import axios from 'axios';
+import api from '../utils/axiosConfig';
 
 const Registration = () => {
   const navigate = useNavigate();
@@ -32,16 +28,12 @@ const Registration = () => {
   const { success, error } = useToast();
   
   const [currentStep, setCurrentStep] = useState(1);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
     firstName: '',
     lastName: '',
     email: '',
-    password: '',
-    confirmPassword: '',
     
     // Step 2: Profile Info
     bio: '',
@@ -178,21 +170,6 @@ const Registration = () => {
           error('Email is required');
           return false;
         }
-        // Password validation only for non-Google OAuth users
-        if (!formData.googleId) {
-          if (!formData.password) {
-            error('Password is required');
-            return false;
-          }
-          if (formData.password.length < 6) {
-            error('Password must be at least 6 characters');
-            return false;
-          }
-          if (formData.password !== formData.confirmPassword) {
-            error('Passwords do not match');
-            return false;
-          }
-        }
         return true;
       case 2:
         // Optional step, always valid
@@ -231,7 +208,6 @@ const Registration = () => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         name: `${formData.firstName} ${formData.lastName}`,
-        password: formData.password,
         bio: formData.bio,
         location: formData.location,
         website: formData.website,
@@ -246,17 +222,16 @@ const Registration = () => {
       console.log('Required fields check:', {
         email: !!requestData.email,
         firstName: !!requestData.firstName,
-        lastName: !!requestData.lastName,
-        password: !!requestData.password
+        lastName: !!requestData.lastName
       });
       
-      const res = await axios.post('http://localhost:5000/api/users/register', requestData);
+      const res = await api.post('/users/register', requestData);
       console.log('Registration response:', res);
 
       if (res.status === 201) {
         // New user registration
         success('Registration successful! Welcome to HackCollab!');
-        login(res.data.user);
+        login(res.data.user, res.data.accessToken, res.data.refreshToken);
         
         // Redirect to appropriate dashboard
         if (res.data.user.isAdmin) {
@@ -267,7 +242,7 @@ const Registration = () => {
       } else if (res.status === 200 && res.data.isExistingUser) {
         // Existing user found, log them in
         success('Welcome back! You are already registered.');
-        login(res.data.user);
+        login(res.data.user, res.data.accessToken, res.data.refreshToken);
         
         // Redirect to appropriate dashboard
         if (res.data.user.isAdmin) {
@@ -330,51 +305,11 @@ const Registration = () => {
         required
       />
       
-      {!formData.googleId ? (
-        <>
-          <div className="relative">
-            <InputField
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Create a password"
-              value={formData.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-9 text-gray-400 hover:text-white"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          
-          <div className="relative">
-            <InputField
-              label="Confirm Password"
-              type={showConfirmPassword ? 'text' : 'password'}
-              placeholder="Confirm your password"
-              value={formData.confirmPassword}
-              onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-9 text-gray-400 hover:text-white"
-            >
-              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-          <p className="text-blue-300 text-sm">
-            ✓ You're signing up with Google - no password needed!
-          </p>
-        </div>
-      )}
+      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+        <p className="text-blue-300 text-sm">
+          ✓ You're signing up with Google - no password needed!
+        </p>
+      </div>
     </div>
   );
 
