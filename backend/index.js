@@ -24,6 +24,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const mongoose = require('mongoose');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -101,6 +103,44 @@ app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/submissions', submissionRoutes);
 
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  socket.on('chat message', (msg) => {
+    console.log('Received chat message:', msg);
+    // Broadcast the message to all clients
+    io.emit('chat message', msg);
+    console.log('Broadcasted chat message to all clients');
+  });
+
+  socket.on('typing', (userData) => {
+    console.log('User typing:', userData);
+    // Broadcast typing indicator to all clients except sender
+    socket.broadcast.emit('typing', userData);
+    console.log('Broadcasted typing indicator');
+  });
+
+  socket.on('stop typing', (userData) => {
+    console.log('User stopped typing:', userData);
+    // Broadcast stop typing to all clients except sender
+    socket.broadcast.emit('stop typing', userData);
+    console.log('Broadcasted stop typing');
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -108,6 +148,6 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(() => console.log('MongoDB connected'))
 .catch((err) => console.error('MongoDB connection error:', err));
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

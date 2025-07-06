@@ -49,6 +49,8 @@ import {
 import Button from '../components/Button';
 import VideoCallModal from '../components/VideoCallModal';
 import { useToast } from '../contexts/ToastContext';
+import { io } from 'socket.io-client';
+import { useAuth } from '../contexts/AuthContext';
 
 const EditorWorkspace = () => {
   const [showChatModal, setShowChatModal] = useState(false);
@@ -65,6 +67,10 @@ const EditorWorkspace = () => {
   const chatEndRef = useRef(null);
   const editorRef = useRef(null);
   const { success } = useToast();
+  const socketRef = useRef();
+  const { user } = useAuth();
+  const [typingUsers, setTypingUsers] = useState([]);
+  const typingTimeoutRef = useRef(null);
 
   // File system state with more realistic content
   const [fileTree, setFileTree] = useState([
@@ -626,34 +632,7 @@ This project is licensed under the MIT License.
   ]);
 
   // Chat messages
-  const [chatMessages, setChatMessages] = useState([
-    { 
-      id: 1, 
-      user: 'Sarah Chen', 
-      message: 'Just pushed the latest changes to the header component! 🚀', 
-      time: '2:30 PM', 
-      avatar: 'SC',
-      type: 'message',
-      status: 'online'
-    },
-    { 
-      id: 2, 
-      user: 'Mike Rodriguez', 
-      message: 'Great work! I\'m working on the API integration now.', 
-      time: '2:35 PM', 
-      avatar: 'MR',
-      type: 'message',
-      status: 'online'
-    },
-    { 
-      id: 3, 
-      user: 'System', 
-      message: 'Sarah Chen started editing App.jsx', 
-      time: '2:38 PM', 
-      avatar: 'SYS',
-      type: 'system'
-    }
-  ]);
+  const [chatMessages, setChatMessages] = useState([]);
 
   // Terminal output
   const [terminalOutput] = useState([
@@ -680,6 +659,34 @@ This project is licensed under the MIT License.
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  useEffect(() => {
+    // Connect to Socket.IO server
+    socketRef.current = io('http://localhost:5000');
+
+    // Listen for incoming chat messages
+    socketRef.current.on('chat message', (msg) => {
+      setChatMessages((prev) => [...prev, msg]);
+    });
+
+    // Typing events
+    socketRef.current.on('typing', (userData) => {
+      setTypingUsers((prev) => {
+        if (!prev.find(user => user.userId === userData.userId)) {
+          return [...prev, userData];
+        }
+        return prev;
+      });
+    });
+
+    socketRef.current.on('stop typing', (userData) => {
+      setTypingUsers((prev) => prev.filter(user => user.userId !== userData.userId));
+    });
+
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
 
   // Monaco Editor configuration
   const editorOptions = {
@@ -920,20 +927,37 @@ export default ${fileName.replace('.jsx', '')};`;
   };
 
   const handleSendMessage = () => {
-    if (message.trim()) {
+    if (message.trim() && user) {
       const newMessage = {
         id: Date.now(),
-        user: 'You',
+        userId: user.id || user._id || user.email, // fallback if id is missing
+        user: user.name,
         message: message.trim(),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        avatar: 'JD',
+        avatar: user.avatar || (user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'),
         type: 'message',
         status: 'online'
       };
-      
-      setChatMessages(prev => [...prev, newMessage]);
+      socketRef.current.emit('chat message', newMessage);
       setMessage('');
     }
+  };
+
+  const handleTyping = () => {
+    if (!user) return;
+    const userData = {
+      userId: user.id || user._id || user.email,
+      name: user.name,
+      avatar: user.avatar || (user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U')
+    };
+    socketRef.current.emit('typing', userData);
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      socketRef.current.emit('stop typing', userData);
+    }, 1000);
   };
 
   const renderFileTree = (items, level = 0) => {
@@ -1333,10 +1357,10 @@ export default ${fileName.replace('.jsx', '')};`;
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {chatMessages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.user === 'You' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs ${msg.user === 'You' ? 'order-2' : 'order-1'}`}>
-                      <div className={`flex items-center space-x-2 mb-1 ${msg.user === 'You' ? 'justify-end' : 'justify-start'}`}>
-                        {msg.user !== 'You' && (
+                  <div key={msg.id} className={`flex ${msg.userId === (user.id || user._id || user.email) ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs ${msg.userId === (user.id || user._id || user.email) ? 'order-2' : 'order-1'}`}>
+                      <div className={`flex items-center space-x-2 mb-1 ${msg.userId === (user.id || user._id || user.email) ? 'justify-end' : 'justify-start'}`}>
+                        {msg.userId !== (user.id || user._id || user.email) && (
                           <div className="h-4 w-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                             <span className="text-xs font-medium text-white">{msg.avatar}</span>
                           </div>
@@ -1345,7 +1369,7 @@ export default ${fileName.replace('.jsx', '')};`;
                         <span className="text-xs text-[#858585]">{msg.time}</span>
                       </div>
                       <div className={`p-2 rounded text-sm ${
-                        msg.user === 'You' 
+                        msg.userId === (user.id || user._id || user.email) 
                           ? 'bg-[#007acc] text-white' 
                           : msg.type === 'system'
                           ? 'bg-[#3e3e42] text-[#cccccc] italic'
@@ -1356,6 +1380,19 @@ export default ${fileName.replace('.jsx', '')};`;
                     </div>
                   </div>
                 ))}
+                {/* Typing Animation */}
+                {typingUsers.length > 0 && (
+                  <div className="flex items-center space-x-2 text-gray-400 text-sm">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                    <span>
+                      {typingUsers.map(u => u.name).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+                    </span>
+                  </div>
+                )}
                 <div ref={chatEndRef} />
               </div>
 
@@ -1366,7 +1403,7 @@ export default ${fileName.replace('.jsx', '')};`;
                     type="text"
                     placeholder="Type a message..."
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
+                    onChange={(e) => { setMessage(e.target.value); handleTyping(); }}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     className="flex-1 px-3 py-2 bg-[#3c3c3c] border border-[#464647] rounded text-white placeholder-[#969696] text-sm focus:outline-none focus:border-[#007acc]"
                   />

@@ -120,8 +120,8 @@ export const AuthProvider = ({ children }) => {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       } else {
-        // Check for stored authentication
-        const storedUser = localStorage.getItem('user');
+    // Check for stored authentication
+    const storedUser = localStorage.getItem('user');
         const storedAccessToken = localStorage.getItem('accessToken');
         const storedRefreshToken = localStorage.getItem('refreshToken');
         
@@ -135,10 +135,10 @@ export const AuthProvider = ({ children }) => {
           const userData = JSON.parse(storedUser);
           console.log('AuthContext: Found stored user:', userData);
           setUser(userData);
-          setIsAuthenticated(true);
+      setIsAuthenticated(true);
         }
-      }
-      setLoading(false);
+    }
+    setLoading(false);
     };
 
     checkAuthFromURL();

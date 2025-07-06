@@ -53,7 +53,7 @@ const AuthPage = () => {
       
       // Redirect to appropriate dashboard
       if (userData.isAdmin) {
-        navigate('/admin');
+      navigate('/admin');
       } else {
         navigate('/dashboard');
       }
