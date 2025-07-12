@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const { createTeam, joinTeam, getTeamMembers, getAllTeams } = require('../controllers/teamController');
+const authenticate = require('../middleware/auth');
 
-// Controller placeholders
-router.get('/', (req, res) => res.send('Get all teams'));
-router.post('/', (req, res) => res.send('Create team'));
-router.get('/:id', (req, res) => res.send('Get team by ID'));
-router.put('/:id', (req, res) => res.send('Update team'));
-router.delete('/:id', (req, res) => res.send('Delete team'));
-router.post('/:id/join', (req, res) => res.send('Join team'));
-router.post('/:id/leave', (req, res) => res.send('Leave team'));
+router.post('/', authenticate, (req, res, next) => {
+  console.log('Create team request:', req.body, req.user);
+  createTeam(req, res, next);
+});
+router.post('/join', authenticate, joinTeam);
+router.get('/:id/members', authenticate, getTeamMembers);
+router.get('/', getAllTeams); // Public route to get all teams
 
-module.exports = router; 
+module.exports = router;

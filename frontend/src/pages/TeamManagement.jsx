@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, 
@@ -19,15 +19,34 @@ import InputField from '../components/InputField';
 import VideoCallModal from '../components/VideoCallModal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../utils/axiosConfig';
+
+// Helper to normalize backend team.members to frontend format
+function normalizeMembers(members) {
+  return members.map((member) => {
+    // member can be a populated user object or just an id
+    const user = typeof member === 'object' ? member : { _id: member };
+    return {
+      id: user._id || user.id || member || Math.random(),
+      name: user.name || user.firstName || 'Unknown',
+      email: user.email || '',
+      avatar: user.avatar || (user.name ? user.name.charAt(0) : 'U'),
+      role: 'Member', // All members have the same role for now
+    };
+  });
+}
 
 const TeamManagement = () => {
-  const { user } = useAuth();
+  const { user, refreshAccessToken } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
+  const [skills, setSkills] = useState([]);
+  const [maxMembers, setMaxMembers] = useState(5);
+  const [status, setStatus] = useState('Active');
   const [inviteEmail, setInviteEmail] = useState('');
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -35,100 +54,155 @@ const TeamManagement = () => {
   const { success, error } = useToast();
 
   // State for managing teams
-  const [myTeams, setMyTeams] = useState([
-    {
-      id: 1,
-      name: 'Code Warriors',
-      description: 'Building the next generation of AI tools',
-      members: [
-        { id: 1, name: user?.name || 'John Doe', email: user?.email || 'john@example.com', role: 'Leader', avatar: user?.name?.charAt(0) || 'JD' },
-        { id: 2, name: 'Sarah Chen', email: 'sarah@example.com', role: 'Developer', avatar: 'SC' },
-        { id: 3, name: 'Mike Rodriguez', email: 'mike@example.com', role: 'Designer', avatar: 'MR' }
-      ],
-      inviteCode: 'CW2024XYZ',
-      status: 'Active',
-      createdBy: user?.id || '1'
-    },
-    {
-      id: 2,
-      name: 'Green Innovators',
-      description: 'Sustainable tech solutions for a better world',
-      members: [
-        { id: 4, name: 'Emma Davis', email: 'emma@example.com', role: 'Leader', avatar: 'ED' },
-        { id: 5, name: 'Alex Johnson', email: 'alex@example.com', role: 'Developer', avatar: 'AJ' }
-      ],
-      inviteCode: 'GI2024ABC',
-      status: 'Active',
-      createdBy: '4'
-    }
-  ]);
+  const [myTeams, setMyTeams] = useState([]);
+  const [availableTeams, setAvailableTeams] = useState([]);
 
-  const availableTeams = [
-    {
-      id: 3,
-      name: 'Data Wizards',
-      description: 'Advanced analytics and machine learning',
-      members: 3,
-      maxMembers: 5,
-      skills: ['Python', 'Machine Learning', 'Data Science']
-    },
-    {
-      id: 4,
-      name: 'Mobile Masters',
-      description: 'Cross-platform mobile app development',
-      members: 2,
-      maxMembers: 4,
-      skills: ['React Native', 'Flutter', 'iOS', 'Android']
+  // Function to refresh teams list
+  const refreshTeamsList = async () => {
+    try {
+      const res = await api.get('/teams');
+      const allTeams = res.data.teams || [];
+      
+      // Separate teams: user's teams vs teams they can join
+      const userTeams = allTeams.filter(team => 
+        team.createdBy === user?._id || 
+        team.members.some(member => 
+          (typeof member === 'object' ? member._id : member) === user?._id
+        )
+      );
+      
+      const availableTeams = allTeams.filter(team => 
+        team.createdBy !== user?._id && 
+        !team.members.some(member => 
+          (typeof member === 'object' ? member._id : member) === user?._id
+        )
+      );
+      
+      console.log('User teams:', userTeams.length);
+      console.log('Available teams:', availableTeams.length);
+      
+      setMyTeams(userTeams);
+      setAvailableTeams(availableTeams);
+    } catch (e) {
+      console.error('Refresh teams error:', e);
+      error('Failed to refresh teams');
     }
-  ];
-
-  // Generate random invite code
-  const generateInviteCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
   };
 
-  const handleCreateTeam = () => {
+  // Fetch all teams on mount
+  useEffect(() => {
+    async function fetchTeams() {
+      try {
+        // Debug: Check authentication state
+        console.log('TeamManagement: User from context:', user);
+        console.log('TeamManagement: Access token exists:', !!localStorage.getItem('accessToken'));
+        console.log('TeamManagement: Refresh token exists:', !!localStorage.getItem('refreshToken'));
+        
+        await refreshTeamsList();
+      } catch (e) {
+        console.error('Fetch teams error:', e);
+        error('Failed to fetch teams');
+      }
+    }
+    fetchTeams();
+  }, [user]);
+
+  // Create a new team
+  const handleCreateTeam = async () => {
     if (!teamName.trim()) {
       error('Team name is required');
       return;
     }
-    
+    if (!user?._id) {
+      error('User not authenticated. Please log in again.');
+      return;
+    }
     setIsCreating(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const newTeam = {
-        id: Date.now(), // Simple ID generation for demo
+    try {
+      const res = await api.post('/teams', {
         name: teamName.trim(),
-        description: teamDescription.trim() || 'No description provided',
-        members: [
-          { 
-            id: user?.id || Date.now(), 
-            name: user?.name || 'You', 
-            email: user?.email || 'you@example.com', 
-            role: 'Leader', 
-            avatar: user?.name?.charAt(0) || 'Y' 
-          }
-        ],
-        inviteCode: generateInviteCode(),
-        status: 'Active',
-        createdBy: user?.id || '1'
-      };
-
-      // Add new team to the list
-      setMyTeams(prevTeams => [newTeam, ...prevTeams]);
+        description: teamDescription.trim(),
+        skills,
+        maxMembers,
+        status,
+      });
+      
+      // Refresh the teams list to get updated data
+      await refreshTeamsList();
       
       success(`Team "${teamName}" created successfully!`);
       setShowCreateModal(false);
       setTeamName('');
       setTeamDescription('');
+    } catch (e) {
+      error(e.response?.data?.message || 'Failed to create team');
+    } finally {
       setIsCreating(false);
-    }, 1000);
+    }
+  };
+
+
+
+  // Join a team by teamId
+  const handleJoinTeam = async (teamId) => {
+    try {
+      // Debug: Check if user is authenticated and token exists
+      console.log('Joining team:', teamId);
+      console.log('User:', user);
+      console.log('Access token in localStorage:', !!localStorage.getItem('accessToken'));
+      
+      const res = await api.post('/teams/join', {
+        teamId,
+      });
+      
+      // Refresh the teams list to get updated data
+      await refreshTeamsList();
+      
+      success('Successfully joined the team!');
+    } catch (e) {
+      console.error('Join team error:', e);
+      console.error('Error response:', e.response?.data);
+      console.error('Error status:', e.response?.status);
+      
+      // If it's a 401 error, try to refresh the token
+      if (e.response?.status === 401) {
+        console.log('401 error detected, attempting token refresh...');
+        try {
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            console.log('Token refreshed, retrying join request...');
+            // Retry the join request
+            const retryRes = await api.post('/teams/join', { teamId });
+            await refreshTeamsList();
+            success('Successfully joined the team!');
+            return;
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
+      }
+      
+      // Handle specific error cases
+      if (e.response?.data?.message === 'User already in team') {
+        // User is already in the team, refresh the teams list
+        console.log('User already in team, refreshing teams list...');
+        await refreshTeamsList();
+        success('You are already a member of this team!');
+      } else {
+        error(e.response?.data?.message || 'Failed to join team');
+      }
+    }
+  };
+
+  // Fetch live team members (when opening a team modal, etc.)
+  const fetchTeamMembers = async (teamId) => {
+    try {
+      const res = await api.get(`/teams/${teamId}/members`);
+      return res.data.members;
+    } catch (e) {
+      error('Failed to fetch team members');
+      return [];
+    }
   };
 
   const handleInviteMember = () => {
@@ -144,10 +218,6 @@ const TeamManagement = () => {
       setInviteEmail('');
       setSelectedTeam(null);
     }, 1000);
-  };
-
-  const handleJoinTeam = (teamId) => {
-    success('Successfully joined the team!');
   };
 
   const handleStartVideoCall = (team) => {
@@ -190,6 +260,23 @@ const TeamManagement = () => {
     setShowInviteModal(false);
     setInviteEmail('');
     setSelectedTeam(null);
+  };
+
+  // Add a new function to handle viewing team details
+  const handleViewTeamDetails = (team) => {
+    // You can implement a modal to show team details
+    console.log('Team details:', team);
+    // For now, just show an alert with team info
+    const details = `
+Team: ${team.name}
+Description: ${team.description}
+Members: ${team.members.length}/${team.maxMembers}
+Skills: ${team.skills.join(', ')}
+Status: ${team.status}
+Invite Code: ${team.inviteCode}
+Created: ${new Date(team.createdAt).toLocaleDateString()}
+  `;
+    alert(details);
   };
 
   return (
@@ -349,127 +436,119 @@ const TeamManagement = () => {
                 <div className="mb-4">
                   <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
                     <span>Team Size</span>
-                    <span>{team.members}/{team.maxMembers} members</span>
+                    <span>{team.members.length}/{team.maxMembers} members</span>
                   </div>
                   <div className="w-full bg-slate-700 rounded-full h-2">
                     <div 
                       className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(team.members / team.maxMembers) * 100}%` }}
+                      style={{ width: `${(team.members.length / team.maxMembers) * 100}%` }}
                     ></div>
                   </div>
                 </div>
 
-                <div className="mb-4 flex-1">
-                  <h4 className="text-sm font-medium text-white mb-2">Skills Needed</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {team.skills.map((skill) => (
-                      <span key={skill} className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded border border-blue-500/30">
+                {/* Skills */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-white mb-3">Skills</h4>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {team.skills.map((skill, skillIndex) => (
+                      <span key={skillIndex} className="px-3 py-1 text-xs font-medium bg-slate-600 text-gray-300 rounded-full">
                         {skill}
                       </span>
                     ))}
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full mt-auto"
-                  onClick={() => handleJoinTeam(team.id)}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Request to Join
-                </Button>
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleJoinTeam(team._id)}
+                    className="flex-1"
+                  >
+                    <User className="h-4 w-4 mr-1" />
+                    Join Team
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewTeamDetails(team)}
+                    className="flex-1 ml-2"
+                  >
+                    <Settings className="h-4 w-4 mr-1" />
+                    View Details
+                  </Button>
+                </div>
               </Card>
             </motion.div>
           ))}
         </div>
       </div>
 
-      {/* Create Team Modal */}
+      {/* Modals */}
       <Modal
         isOpen={showCreateModal}
         onClose={handleCloseCreateModal}
         title="Create New Team"
-        size="lg"
       >
-        <div className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleCreateTeam(); }}>
           <InputField
             label="Team Name"
-            placeholder="Enter team name"
+            type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
             required
           />
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Description
-            </label>
-            <textarea
-              placeholder="Describe your team's goals and project"
-              value={teamDescription}
-              onChange={(e) => setTeamDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400"
-              rows={4}
-            />
-          </div>
-          <div className="flex justify-end space-x-3 mt-6">
-            <Button variant="outline" onClick={handleCloseCreateModal} disabled={isCreating}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateTeam} loading={isCreating} disabled={isCreating}>
-              {isCreating ? 'Creating...' : 'Create Team'}
-            </Button>
-          </div>
-        </div>
+          <InputField
+            label="Team Description"
+            type="text"
+            value={teamDescription}
+            onChange={(e) => setTeamDescription(e.target.value)}
+            required
+          />
+          <InputField
+            label="Max Members"
+            type="number"
+            value={maxMembers}
+            onChange={(e) => setMaxMembers(parseInt(e.target.value) || 5)}
+            min="1"
+            max="10"
+            required
+          />
+          <InputField
+            label="Skills (comma-separated)"
+            type="text"
+            value={skills.join(', ')}
+            onChange={(e) => setSkills(e.target.value.split(',').map(s => s.trim()))}
+            placeholder="e.g., React, Node.js, MongoDB"
+          />
+          <Button type="submit" isLoading={isCreating}>
+            Create Team
+          </Button>
+        </form>
       </Modal>
 
-      {/* Invite Member Modal */}
       <Modal
         isOpen={showInviteModal}
         onClose={handleCloseInviteModal}
-        title={`Invite Member to ${selectedTeam?.name}`}
+        title="Invite Members"
       >
-        <div className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleInviteMember(); }}>
           <InputField
             label="Email Address"
             type="email"
-            placeholder="member@example.com"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
             required
           />
-          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-blue-300 mb-2">Invite Code</h4>
-            <div className="flex items-center space-x-2">
-              <code className="px-2 py-1 text-sm bg-slate-700 border border-slate-600 rounded font-mono text-gray-300 flex-1">
-                {selectedTeam?.inviteCode}
-              </code>
-              <button
-                onClick={() => copyInviteCode(selectedTeam?.inviteCode)}
-                className="p-1 hover:bg-blue-500/20 rounded transition-colors"
-              >
-                <Copy className="h-4 w-4 text-blue-400" />
-              </button>
-            </div>
-            <p className="text-xs text-blue-300 mt-2">
-              Share this code with team members to join directly
-            </p>
-          </div>
-          <div className="flex justify-end space-x-3 mt-6">
-            <Button variant="outline" onClick={handleCloseInviteModal}>
-              Cancel
-            </Button>
-            <Button onClick={handleInviteMember}>
-              Send Invitation
-            </Button>
-          </div>
-        </div>
+          <Button type="submit">Send Invitation</Button>
+        </form>
       </Modal>
 
-      {/* Video Call Modal */}
       <VideoCallModal
         isOpen={showVideoModal}
         onClose={() => setShowVideoModal(false)}
-        teamName={selectedTeam?.name || "Team"}
+        team={selectedTeam}
       />
     </div>
   );
