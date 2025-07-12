@@ -41,6 +41,7 @@ const TeamManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showTeamDetailsModal, setShowTeamDetailsModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
@@ -262,21 +263,15 @@ const TeamManagement = () => {
     setSelectedTeam(null);
   };
 
+  const handleCloseTeamDetailsModal = () => {
+    setShowTeamDetailsModal(false);
+    setSelectedTeam(null);
+  };
+
   // Add a new function to handle viewing team details
   const handleViewTeamDetails = (team) => {
-    // You can implement a modal to show team details
-    console.log('Team details:', team);
-    // For now, just show an alert with team info
-    const details = `
-Team: ${team.name}
-Description: ${team.description}
-Members: ${team.members.length}/${team.maxMembers}
-Skills: ${team.skills.join(', ')}
-Status: ${team.status}
-Invite Code: ${team.inviteCode}
-Created: ${new Date(team.createdAt).toLocaleDateString()}
-  `;
-    alert(details);
+    setSelectedTeam(team);
+    setShowTeamDetailsModal(true);
   };
 
   return (
@@ -550,6 +545,141 @@ Created: ${new Date(team.createdAt).toLocaleDateString()}
         onClose={() => setShowVideoModal(false)}
         team={selectedTeam}
       />
+
+      {/* Team Details Modal */}
+      <Modal
+        isOpen={showTeamDetailsModal}
+        onClose={handleCloseTeamDetailsModal}
+        title="Team Details"
+        size="lg"
+      >
+        {selectedTeam && (
+          <div className="space-y-6">
+            {/* Team Header */}
+            <div className="text-center pb-4 border-b border-slate-700">
+              <h2 className="text-2xl font-bold text-white mb-2">{selectedTeam.name}</h2>
+              <p className="text-gray-400">{selectedTeam.description}</p>
+              <div className="mt-3">
+                <span className={`px-3 py-1 text-sm font-medium rounded-full border ${
+                  selectedTeam.status === 'Active' 
+                    ? 'bg-green-500/20 text-green-300 border-green-500/30' 
+                    : 'bg-gray-500/20 text-gray-300 border-gray-500/30'
+                }`}>
+                  {selectedTeam.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Team Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <div className="text-sm text-gray-400 mb-1">Team Size</div>
+                <div className="text-2xl font-bold text-white">{selectedTeam.members.length}/{selectedTeam.maxMembers}</div>
+                <div className="w-full bg-slate-600 rounded-full h-2 mt-2">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(selectedTeam.members.length / selectedTeam.maxMembers) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <div className="text-sm text-gray-400 mb-1">Created</div>
+                <div className="text-lg font-semibold text-white">
+                  {new Date(selectedTeam.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Skills */}
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">Required Skills</h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedTeam.skills.length > 0 ? (
+                  selectedTeam.skills.map((skill, index) => (
+                    <span key={index} className="px-3 py-1 text-sm font-medium bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30">
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-gray-400 italic">No specific skills required</span>
+                )}
+              </div>
+            </div>
+
+            {/* Members */}
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">Team Members</h3>
+              <div className="space-y-3">
+                {selectedTeam.members.length > 0 ? (
+                  selectedTeam.members.map((member, index) => (
+                    <div key={member.id || index} className="flex items-center space-x-3 p-3 bg-slate-700/30 rounded-lg">
+                      <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-medium text-white">{member.avatar}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{member.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{member.email}</p>
+                      </div>
+                      <div className="flex items-center space-x-1 flex-shrink-0">
+                        {member.role === 'Leader' && <Crown className="h-4 w-4 text-yellow-500" />}
+                        <span className="text-xs text-gray-400">{member.role}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6 text-gray-400">
+                    <Users className="h-8 w-8 mx-auto mb-2 text-gray-500" />
+                    <p>No members yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Invite Code */}
+            <div className="bg-slate-700/30 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-white mb-2">Invite Code</h3>
+              <div className="flex items-center space-x-2">
+                <code className="flex-1 px-3 py-2 text-sm bg-slate-600 rounded font-mono text-gray-300">
+                  {selectedTeam.inviteCode}
+                </code>
+                <button
+                  onClick={() => copyInviteCode(selectedTeam.inviteCode)}
+                  className="p-2 hover:bg-slate-600 rounded transition-colors flex-shrink-0"
+                  title="Copy invite code"
+                >
+                  {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-gray-400" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex space-x-3 pt-4 border-t border-slate-700">
+              <Button
+                onClick={() => {
+                  handleCloseTeamDetailsModal();
+                  setSelectedTeam(selectedTeam);
+                  setShowInviteModal(true);
+                }}
+                className="flex-1"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Invite Members
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleCloseTeamDetailsModal();
+                  handleStartVideoCall(selectedTeam);
+                }}
+                className="flex-1"
+              >
+                <Video className="h-4 w-4 mr-2" />
+                Start Video Call
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

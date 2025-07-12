@@ -1,13 +1,5 @@
 require('dotenv').config();
 
-// Check required environment variables
-console.log('=== ENVIRONMENT VARIABLES CHECK ===');
-console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
-console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
-console.log('SESSION_SECRET exists:', !!process.env.SESSION_SECRET);
-console.log('GOOGLE_CLIENT_ID exists:', !!process.env.GOOGLE_CLIENT_ID);
-console.log('GOOGLE_CLIENT_SECRET exists:', !!process.env.GOOGLE_CLIENT_SECRET);
-
 // Check if required variables are missing
 if (!process.env.JWT_SECRET) {
   console.error('ERROR: JWT_SECRET is not defined in environment variables!');
