@@ -8,7 +8,6 @@ import Registration from './pages/Registration';
 import Dashboard from './pages/Dashboard';
 import TeamManagement from './pages/TeamManagement';
 import EditorWorkspace from './pages/EditorWorkspace';
-import ChatVideo from './pages/ChatVideo';
 import ProjectSubmission from './pages/ProjectSubmission';
 import HackathonSchedule from './pages/HackathonSchedule';
 import JoinHackathon from './pages/JoinHackathon';
@@ -100,13 +99,6 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <EditorWorkspace />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/chat-video" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ChatVideo />
                   </Layout>
                 </ProtectedRoute>
               } />
