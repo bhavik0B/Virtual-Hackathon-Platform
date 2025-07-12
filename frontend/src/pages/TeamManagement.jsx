@@ -713,49 +713,6 @@ const TeamManagement = () => {
                 )}
               </div>
             </div>
-
-            {/* Invite Code */}
-            <div className="bg-slate-700/30 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-white mb-2">Invite Code</h3>
-              <div className="flex items-center space-x-2">
-                <code className="flex-1 px-3 py-2 text-sm bg-slate-600 rounded font-mono text-gray-300">
-                  {selectedTeam.inviteCode}
-                </code>
-                <button
-                  onClick={() => copyInviteCode(selectedTeam.inviteCode)}
-                  className="p-2 hover:bg-slate-600 rounded transition-colors flex-shrink-0"
-                  title="Copy invite code"
-                >
-                  {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-gray-400" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex space-x-3 pt-4 border-t border-slate-700">
-              <Button
-                onClick={() => {
-                  handleCloseTeamDetailsModal();
-                  setSelectedTeam(selectedTeam);
-                  setShowInviteModal(true);
-                }}
-                className="flex-1"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Invite Members
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  handleCloseTeamDetailsModal();
-                  handleStartVideoCall(selectedTeam);
-                }}
-                className="flex-1"
-              >
-                <Video className="h-4 w-4 mr-2" />
-                Start Video Call
-              </Button>
-            </div>
           </div>
         )}
       </Modal>
