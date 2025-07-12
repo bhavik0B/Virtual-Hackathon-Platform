@@ -57,6 +57,8 @@ const TeamManagement = () => {
   // State for managing teams
   const [myTeams, setMyTeams] = useState([]);
   const [availableTeams, setAvailableTeams] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Function to refresh teams list
   const refreshTeamsList = async () => {
@@ -87,6 +89,43 @@ const TeamManagement = () => {
     } catch (e) {
       console.error('Refresh teams error:', e);
       error('Failed to refresh teams');
+    }
+  };
+
+  // Function to search teams by invite code
+  const searchTeamsByInviteCode = async (inviteCode) => {
+    if (!inviteCode || inviteCode.trim() === '') {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const res = await api.get(`/teams/search?inviteCode=${encodeURIComponent(inviteCode.trim())}`);
+      const searchTeams = res.data.teams || [];
+      
+      // Filter out teams the user is already a member of
+      const filteredResults = searchTeams.filter(team => 
+        team.createdBy !== user?._id && 
+        !team.members.some(member => 
+          (typeof member === 'object' ? member._id : member) === user?._id
+        )
+      );
+      
+      setSearchResults(filteredResults);
+      
+      if (searchTeams.length > 0) {
+        success(res.data.message);
+      } else {
+        error('No teams found with this invite code');
+      }
+    } catch (e) {
+      console.error('Search teams error:', e);
+      error(e.response?.data?.message || 'Failed to search teams');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -245,10 +284,7 @@ const TeamManagement = () => {
     });
   };
 
-  const filteredTeams = availableTeams.filter(team =>
-    team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    team.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
 
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
@@ -399,21 +435,63 @@ const TeamManagement = () => {
       {/* Available Teams */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
-          <h2 className="text-xl font-semibold text-white">Available Teams</h2>
-          <div className="relative w-full sm:w-auto">
+          <h2 className="text-xl font-semibold text-white">
+            {searchTerm ? 'Search Results' : 'Available Teams'}
+          </h2>
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search teams..."
+                placeholder="Search by invite code..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchTerm(value);
+                  // Debounce search to avoid too many API calls
+                  const timeoutId = setTimeout(() => {
+                    searchTeamsByInviteCode(value);
+                  }, 500);
+                  return () => clearTimeout(timeoutId);
+                }}
               className="pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 w-full sm:w-64"
             />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                </div>
+              )}
+            </div>
+            {searchTerm && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSearchResults([]);
+                }}
+              >
+                Clear
+              </Button>
+            )}
           </div>
         </div>
 
+        {searchTerm && searchResults.length === 0 && !isSearching ? (
+          <Card className="p-8 text-center">
+            <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No teams found</h3>
+            <p className="text-gray-400 mb-4">No teams found with invite code "{searchTerm}"</p>
+            <Button onClick={() => {
+              setSearchTerm('');
+              setSearchResults([]);
+            }}>
+              Clear Search
+            </Button>
+          </Card>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredTeams.map((team, index) => (
+            {(searchTerm ? searchResults : availableTeams).map((team, index) => (
             <motion.div
               key={team.id}
               initial={{ opacity: 0, y: 20 }}
@@ -464,20 +542,21 @@ const TeamManagement = () => {
                     <User className="h-4 w-4 mr-1" />
                     Join Team
                   </Button>
-                  <Button
+                <Button
                     size="sm"
-                    variant="outline"
+                  variant="outline"
                     onClick={() => handleViewTeamDetails(team)}
                     className="flex-1 ml-2"
-                  >
+                >
                     <Settings className="h-4 w-4 mr-1" />
                     View Details
-                  </Button>
+                </Button>
                 </div>
               </Card>
             </motion.div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -497,8 +576,8 @@ const TeamManagement = () => {
           <InputField
             label="Team Description"
             type="text"
-            value={teamDescription}
-            onChange={(e) => setTeamDescription(e.target.value)}
+              value={teamDescription}
+              onChange={(e) => setTeamDescription(e.target.value)}
             required
           />
           <InputField
@@ -519,7 +598,7 @@ const TeamManagement = () => {
           />
           <Button type="submit" isLoading={isCreating}>
             Create Team
-          </Button>
+            </Button>
         </form>
       </Modal>
 

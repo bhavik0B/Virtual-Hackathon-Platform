@@ -97,4 +97,35 @@ async function getAllTeams(req, res) {
   }
 }
 
-module.exports = { createTeam, joinTeam, getTeamMembers, getAllTeams }; 
+// Search teams by invite code
+async function searchTeamsByInviteCode(req, res) {
+  try {
+    const { inviteCode } = req.query;
+    
+    if (!inviteCode || inviteCode.trim() === '') {
+      return res.status(400).json({ message: 'Invite code is required' });
+    }
+    
+    // Search for teams with invite code (case-insensitive)
+    const teams = await Team.find({
+      inviteCode: { $regex: inviteCode.trim().toUpperCase(), $options: 'i' }
+    }).populate('members', 'name email avatar');
+    
+    if (teams.length === 0) {
+      return res.json({ 
+        teams: [], 
+        message: 'No teams found with this invite code' 
+      });
+    }
+    
+    res.json({ 
+      teams, 
+      message: `Found ${teams.length} team(s) with invite code "${inviteCode}"` 
+    });
+  } catch (err) {
+    console.error('Search teams error:', err);
+    res.status(500).json({ message: 'Failed to search teams', error: err.message });
+  }
+}
+
+module.exports = { createTeam, joinTeam, getTeamMembers, getAllTeams, searchTeamsByInviteCode }; 

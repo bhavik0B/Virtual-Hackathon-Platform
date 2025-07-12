@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createTeam, joinTeam, getTeamMembers, getAllTeams } = require('../controllers/teamController');
+const { createTeam, joinTeam, getTeamMembers, getAllTeams, searchTeamsByInviteCode } = require('../controllers/teamController');
 const authenticate = require('../middleware/auth');
 
 router.post('/', authenticate, (req, res, next) => {
@@ -8,6 +8,7 @@ router.post('/', authenticate, (req, res, next) => {
   createTeam(req, res, next);
 });
 router.post('/join', authenticate, joinTeam);
+router.get('/search', searchTeamsByInviteCode); // Search teams by invite code
 router.get('/:id/members', authenticate, getTeamMembers);
 router.get('/', getAllTeams); // Public route to get all teams
 
