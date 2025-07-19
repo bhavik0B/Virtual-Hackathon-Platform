@@ -252,13 +252,16 @@ const Dashboard = () => {
                         {hackathon.name}
                       </Link>
                       <div className="flex items-center text-sm text-gray-400 mt-1">
+                      About Hackathon: {hackathon.description}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-400 mt-1">
                         <Calendar className="h-4 w-4 mr-1" />
                         {new Date(hackathon.startDate).toLocaleDateString()} - {new Date(hackathon.endDate).toLocaleDateString()}
                       </div>
                       <div className="flex items-center text-sm text-gray-400 mt-1">
                         <Users className="h-4 w-4 mr-1" />
                         {/* Optionally show participants count if available */}
-                        {hackathon.participants ? hackathon.participants.length : 0} participants
+                        {hackathon.participants ? hackathon.participants.length : 0} Teams
                       </div>
                     </div>
                     <span className={`px-3 py-1 text-xs font-medium rounded border ${
@@ -292,6 +295,9 @@ const Dashboard = () => {
                       <Link to="/schedule" className="font-medium text-white text-base hover:text-blue-300 transition-colors">
                         {hackathon.name}
                       </Link>
+                      <div className="flex items-center text-sm text-gray-400 mt-1">
+                      About Hackathon: {hackathon.description}
+                      </div>
                       <div className="flex items-center text-sm text-gray-400 mt-1">
                         <Calendar className="h-4 w-4 mr-1" />
                         {new Date(hackathon.startDate).toLocaleDateString()} - {new Date(hackathon.endDate).toLocaleDateString()}
