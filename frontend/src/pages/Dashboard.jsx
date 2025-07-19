@@ -31,7 +31,6 @@ const Dashboard = () => {
   // This component will only render when user is properly authenticated
 
   const stats = [
-    { label: 'Hours Coded', value: '156', icon: Clock, color: 'from-orange-500 to-red-500' },
     { label: 'Projects', value: '8', icon: Code2, color: 'from-green-500 to-emerald-500' }
   ];
 
@@ -198,43 +197,6 @@ const Dashboard = () => {
         </div>
       </motion.div>
 
-      {/* Stats Grid - Only 2 cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          const isProjectsCard = stat.label === 'Projects';
-          return (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="w-full"
-            >
-              <Card 
-                className={`p-6 hover:shadow-xl transition-all duration-300 group w-full ${
-                  isProjectsCard ? 'cursor-pointer hover:border-blue-500/50' : ''
-                }`} 
-                hover={isProjectsCard}
-                onClick={isProjectsCard ? handleProjectsClick : undefined}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
-                    <p className="text-3xl font-bold text-white">{stat.value}</p>
-                    {isProjectsCard && (
-                      <p className="text-xs text-blue-400 mt-1">Click to view details</p>
-                    )}
-                  </div>
-                  <div className={`p-3 rounded-lg bg-gradient-to-r ${stat.color} group-hover:scale-110 transition-transform`}>
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
         {/* Upcoming Events */}
@@ -327,7 +289,7 @@ const Dashboard = () => {
                 </span>
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {hackathon.projects.map((project) => (
                   <div key={project.id} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
                     <div className="flex items-start justify-between mb-3">
