@@ -17,7 +17,10 @@ const userSchema = new mongoose.Schema({
   experience: { type: String, enum: ['beginner', 'intermediate', 'expert'], default: 'beginner' },
   isAdmin: { type: Boolean, default: false },
   refreshToken: { type: String },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  hackathonsWon: { type: Number, default: 0 },
+  projectsCompleted: { type: Number, default: 0 },
+  teamsJoined: { type: Number, default: 0 },
 }, { strict: false });
 
 module.exports = mongoose.model('User', userSchema); 

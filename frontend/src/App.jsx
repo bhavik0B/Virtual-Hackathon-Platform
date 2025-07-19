@@ -15,6 +15,7 @@ import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import Layout from './layouts/Layout';
+import AdminLogin from './pages/AdminLogin';
 import './index.css';
 
 // Protected Route Component
@@ -79,6 +80,7 @@ function App() {
                   <AdminDashboard />
                 </AdminRoute>
               } />
+              <Route path="/admin-auth" element={<AdminLogin />} />
               
               {/* Regular User Routes with Layout */}
               <Route path="/dashboard" element={

@@ -37,30 +37,6 @@ const AuthPage = () => {
     return null;
   }
 
-  const handleGithubLogin = async () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const userData = {
-        id: '2',
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        avatar: 'JS',
-        isAdmin: true
-      };
-      success('Welcome to HackCollab!');
-      login(userData, null, null); // Demo login without tokens
-      
-      // Redirect to appropriate dashboard
-      if (userData.isAdmin) {
-      navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
-      setLoading(false);
-    }, 1500);
-  };
-
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <motion.div
@@ -94,18 +70,6 @@ const AuthPage = () => {
             <Mail className="h-5 w-5 mr-3" />
             Continue with Google
           </Button>
-
-          <Button
-            variant="secondary"
-            size="lg"
-            className="w-full"
-            onClick={handleGithubLogin}
-            loading={loading}
-            disabled={loading}
-          >
-            <Github className="h-5 w-5 mr-3" />
-            Continue with GitHub
-          </Button>
         </div>
 
         {/* Divider */}
@@ -133,10 +97,7 @@ const AuthPage = () => {
 
         <div className="text-center">
           <p className="text-sm text-gray-400">
-            Click any button above to sign in with demo credentials
-          </p>
-          <p className="text-xs text-gray-500 mt-2">
-            Google: Regular user • GitHub: Admin user
+            Click the button above to sign in with your Google account
           </p>
         </div>
 

@@ -22,43 +22,32 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../utils/axiosConfig';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [showProjectsModal, setShowProjectsModal] = useState(false);
+  const [hackathons, setHackathons] = useState([]);
+  const [loadingHackathons, setLoadingHackathons] = useState(true);
 
-  // Note: AuthContext now handles all token verification and redirects automatically
-  // This component will only render when user is properly authenticated
+  useEffect(() => {
+    async function fetchHackathons() {
+      setLoadingHackathons(true);
+      try {
+        const res = await api.get('/hackathons');
+        setHackathons(res.data.hackathons || []);
+      } catch (e) {
+        // Optionally show error
+      } finally {
+        setLoadingHackathons(false);
+      }
+    }
+    fetchHackathons();
+  }, []);
+
 
   const stats = [
     { label: 'Projects', value: '8', icon: Code2, color: 'from-green-500 to-emerald-500' }
-  ];
-
-  const upcomingEvents = [
-    {
-      id: 1,
-      title: 'AI Innovation Challenge',
-      date: '2024-01-15',
-      time: '09:00 AM',
-      participants: 234,
-      status: 'Upcoming'
-    },
-    {
-      id: 2,
-      title: 'Green Tech Hackathon',
-      date: '2024-01-22',
-      time: '10:00 AM',
-      participants: 189,
-      status: 'Registration Open'
-    },
-    {
-      id: 3,
-      title: 'Fintech Solutions',
-      date: '2024-01-28',
-      time: '11:00 AM',
-      participants: 156,
-      status: 'Coming Soon'
-    }
   ];
 
   const recentActivity = [
@@ -197,6 +186,80 @@ const Dashboard = () => {
         </div>
       </motion.div>
 
+      {/* Stats Grid - Only 2 cards */}
+      <div className="grid grid-cols-1 gap-6 w-full">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon;
+          const isProjectsCard = stat.label === 'Projects';
+          return (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="w-full"
+            >
+              <Card 
+                className={`p-6 hover:shadow-xl transition-all duration-300 group w-full ${
+                  isProjectsCard ? 'cursor-pointer hover:border-blue-500/50' : ''
+                }`} 
+                hover={isProjectsCard}
+                onClick={isProjectsCard ? handleProjectsClick : undefined}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
+                    <p className="text-3xl font-bold text-white">{stat.value}</p>
+                    {isProjectsCard && (
+                      <p className="text-xs text-blue-400 mt-1">Click to view details</p>
+                    )}
+                  </div>
+                  <div className={`p-3 rounded-lg bg-gradient-to-r ${stat.color} group-hover:scale-110 transition-transform`}>
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Available Hackathons Section
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold text-white mb-4">Available Hackathons</h2>
+        {loadingHackathons ? (
+          <div className="text-gray-400">Loading hackathons...</div>
+        ) : hackathons.length === 0 ? (
+          <div className="text-gray-400">No hackathons available at the moment.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {hackathons.map(hackathon => (
+              <Card key={hackathon._id} className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-white">{hackathon.name}</h3>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full border ${
+                    hackathon.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                    hackathon.status === 'upcoming' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                    hackathon.status === 'completed' ? 'bg-gray-500/20 text-gray-300 border-gray-500/30' :
+                    'bg-gray-500/20 text-gray-300 border-gray-500/30'
+                  }`}>
+                    {hackathon.status}
+                  </span>
+                </div>
+                <p className="text-gray-300 mb-2 line-clamp-2">{hackathon.description}</p>
+                <div className="flex items-center text-xs text-gray-400 mb-1">
+                  <span>Start: {new Date(hackathon.startDate).toLocaleDateString()}</span>
+                  <span className="mx-2">|</span>
+                  <span>End: {new Date(hackathon.endDate).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center text-xs text-gray-400">
+                  <span>Max Team Size: {hackathon.maxTeamSize}</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div> */}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
         {/* Upcoming Events */}
@@ -215,28 +278,36 @@ const Dashboard = () => {
               </Link>
             </div>
             <div className="space-y-4">
-              {upcomingEvents.map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
-                  <div className="flex-1">
-                    <Link to="/schedule" className="font-medium text-white text-base hover:text-blue-300 transition-colors">
-                      {event.title}
-                    </Link>
-                    <div className="flex items-center text-sm text-gray-400 mt-1">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      {event.date} at {event.time}
+              {hackathons
+                .filter(h => h.status === 'upcoming' || h.status === 'active')
+                .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+                .map((hackathon) => (
+                  <div key={hackathon._id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
+                    <div className="flex-1">
+                      <Link to="/schedule" className="font-medium text-white text-base hover:text-blue-300 transition-colors">
+                        {hackathon.name}
+                      </Link>
+                      <div className="flex items-center text-sm text-gray-400 mt-1">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {new Date(hackathon.startDate).toLocaleDateString()} - {new Date(hackathon.endDate).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-400 mt-1">
+                        <Users className="h-4 w-4 mr-1" />
+                        {/* Optionally show participants count if available */}
+                        {hackathon.participants ? hackathon.participants.length : 0} participants
+                      </div>
                     </div>
-                    <div className="flex items-center text-sm text-gray-400 mt-1">
-                      <Users className="h-4 w-4 mr-1" />
-                      {event.participants} participants
-                    </div>
+                    <span className={`px-3 py-1 text-xs font-medium rounded border ${
+                      hackathon.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      hackathon.status === 'upcoming' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                      'bg-gray-500/20 text-gray-300 border-gray-500/30'
+                    }`}>
+                      {hackathon.status.charAt(0).toUpperCase() + hackathon.status.slice(1)}
+                    </span>
                   </div>
-                  <span className="px-3 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 rounded border border-blue-500/30">
-                    {event.status}
-                  </span>
-                </div>
-              ))}
+                ))}
             </div>
-          </Card>
+            </Card>
         </motion.div>
 
         {/* Recent Activity */}

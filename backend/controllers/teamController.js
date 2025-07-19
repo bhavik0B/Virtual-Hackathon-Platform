@@ -26,6 +26,8 @@ async function createTeam(req, res) {
       createdBy: userId,
       members: [userId], // Only userId, not an object
     });
+    // Increment teamsJoined for the creator
+    await User.findByIdAndUpdate(userId, { $inc: { teamsJoined: 1 } });
     res.status(201).json({ message: 'Team created', team });
   } catch (err) {
     console.error('Create team error:', err);
@@ -64,6 +66,8 @@ async function joinTeam(req, res) {
     // Add user ID to members array
     team.members.push(userId);
     await team.save();
+    // Increment teamsJoined for the user
+    await User.findByIdAndUpdate(userId, { $inc: { teamsJoined: 1 } });
     
     // Populate members for response
     await team.populate('members', 'name email avatar');

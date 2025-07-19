@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, 
@@ -30,69 +30,49 @@ import InputField from '../components/InputField';
 import Modal from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import api from '../utils/axiosConfig';
 
 const Profile = () => {
   const { user } = useAuth();
-  const { success } = useToast();
+  const { success, error } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-  
+  const [loading, setLoading] = useState(true);
+
   // Profile data state
-  const [profileData, setProfileData] = useState({
-    name: user?.name || 'John Doe',
-    email: user?.email || 'john@example.com',
-    bio: 'Full-stack developer passionate about AI and machine learning. Love building innovative solutions that make a difference.',
-    location: 'San Francisco, CA',
-    website: 'https://johndoe.dev',
-    github: 'https://github.com/johndoe',
-    linkedin: 'https://linkedin.com/in/johndoe',
-    joinedDate: '2023-06-15',
-    skills: ['JavaScript', 'React', 'Node.js', 'Python', 'AI/ML', 'Docker']
-  });
+  const [profileData, setProfileData] = useState(null);
 
-  // Stats data
-  const stats = [
-    { label: 'Hackathons Won', value: '5', icon: Trophy, color: 'text-yellow-500' },
-    { label: 'Projects Completed', value: '23', icon: Code2, color: 'text-green-500' },
-    { label: 'Teams Joined', value: '12', icon: Users, color: 'text-blue-500' },
-    { label: 'Total Points', value: '2,850', icon: Star, color: 'text-purple-500' }
-  ];
-
-  // Achievements data
-  const achievements = [
-    { 
-      id: 1, 
-      title: 'First Place Winner', 
-      description: 'Won 1st place in AI Innovation Challenge', 
-      icon: Trophy, 
-      color: 'text-yellow-500',
-      date: '2024-01-15'
-    },
-    { 
-      id: 2, 
-      title: 'Team Leader', 
-      description: 'Successfully led 5+ teams to victory', 
-      icon: Users, 
-      color: 'text-blue-500',
-      date: '2024-01-10'
-    },
-    { 
-      id: 3, 
-      title: 'Code Master', 
-      description: 'Contributed 10,000+ lines of code', 
-      icon: Code2, 
-      color: 'text-green-500',
-      date: '2024-01-05'
-    },
-    { 
-      id: 4, 
-      title: 'Rising Star', 
-      description: 'Gained 1000+ points in a month', 
-      icon: TrendingUp, 
-      color: 'text-orange-500',
-      date: '2023-12-20'
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user?._id) return;
+      setLoading(true);
+      try {
+        const res = await api.get(`/users/${user._id}`);
+        setProfileData(res.data);
+      } catch (e) {
+        error('Failed to load profile data');
+      } finally {
+        setLoading(false);
+      }
     }
-  ];
+    fetchProfile();
+  }, [user]);
+
+  // Stats data (could be fetched or computed in future)
+  let stats = [];
+  if (loading || !profileData) {
+    stats = [
+      { label: 'Hackathons Won', value: 0, icon: Trophy, color: 'text-yellow-500' },
+      { label: 'Projects Completed', value: 0, icon: Code2, color: 'text-green-500' },
+      { label: 'Teams Joined', value: 0, icon: Users, color: 'text-blue-500' }
+    ];
+  } else {
+    stats = [
+      { label: 'Hackathons Won', value: profileData.hackathonsWon ?? 0, icon: Trophy, color: 'text-yellow-500' },
+      { label: 'Projects Completed', value: profileData.projectsCompleted ?? 0, icon: Code2, color: 'text-green-500' },
+      { label: 'Teams Joined', value: profileData.teamsJoined ?? 0, icon: Users, color: 'text-blue-500' }
+    ];
+  }
 
   // Recent activity
   const recentActivity = [
@@ -124,6 +104,14 @@ const Profile = () => {
       day: 'numeric'
     });
   };
+
+  if (loading || !profileData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-white text-lg">Loading profile...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto w-full">
@@ -230,7 +218,7 @@ const Profile = () => {
                 <div className="flex items-center space-x-3">
                   <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   <span className="text-gray-300 text-sm">
-                    Joined {formatDate(profileData.joinedDate)}
+                    Joined {formatDate(profileData.createdAt)}
                   </span>
                 </div>
 
@@ -313,6 +301,21 @@ const Profile = () => {
                 ))}
               </div>
             </div>
+
+            {/* Interests */}
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-300 mb-3">Interests</h3>
+              <div className="flex flex-wrap gap-2">
+                {profileData.interests.map((interest, index) => (
+                  <span 
+                    key={index}
+                    className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded border border-blue-500/30"
+                  >
+                    {interest}
+                  </span>
+                ))}
+              </div>
+            </div>
           </Card>
         </div>
 
@@ -338,34 +341,6 @@ const Profile = () => {
               );
             })}
           </div>
-
-          {/* Achievements */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Achievements</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {achievements.map((achievement, index) => {
-                const Icon = achievement.icon;
-                return (
-                  <motion.div
-                    key={achievement.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-start space-x-3 p-4 bg-slate-700/50 rounded-lg"
-                  >
-                    <div className="flex-shrink-0">
-                      <Icon className={`h-6 w-6 ${achievement.color}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-white">{achievement.title}</h3>
-                      <p className="text-sm text-gray-400 mt-1">{achievement.description}</p>
-                      <p className="text-xs text-gray-500 mt-2">{formatDate(achievement.date)}</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </Card>
 
           {/* Recent Activity */}
           <Card className="p-6">

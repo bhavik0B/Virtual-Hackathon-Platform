@@ -65,6 +65,7 @@ const hackathonRoutes = require('./routes/hackathonRoutes');
 const userRoutes = require('./routes/userRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 app.get('/', (req, res) => {
   res.send('Hackathon Platform Backend is running');
@@ -94,6 +95,7 @@ app.use('/api/hackathons', hackathonRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/submissions', submissionRoutes);
+app.use('/api/admin', adminRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {

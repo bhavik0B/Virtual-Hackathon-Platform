@@ -12,4 +12,4 @@ router.get('/search', searchTeamsByInviteCode); // Search teams by invite code
 router.get('/:id/members', authenticate, getTeamMembers);
 router.get('/', getAllTeams); // Public route to get all teams
 
-module.exports = router;
+module.exports = router; 
