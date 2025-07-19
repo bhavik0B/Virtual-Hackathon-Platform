@@ -24,4 +24,112 @@ async function getAllHackathons(req, res) {
   }
 }
 
-module.exports = { markHackathonWinner, getAllHackathons }; 
+// Create a new hackathon
+async function createHackathon(req, res) {
+  try {
+    const {
+      name,
+      description,
+      customerId,
+      customerName,
+      organizer,
+      startDate,
+      endDate,
+      registrationDeadline,
+      maxTeamSize,
+      prizes,
+      status,
+      eligibility,
+      levels,
+      bannerImage,
+      rules,
+      contactEmail
+    } = req.body;
+
+    if (!name || !description || !startDate || !endDate || !registrationDeadline || !maxTeamSize) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const hackathon = await Hackathon.create({
+      name,
+      description,
+      customerId,
+      customerName,
+      organizer,
+      startDate,
+      endDate,
+      registrationDeadline,
+      maxTeamSize,
+      prizes,
+      status,
+      eligibility,
+      levels,
+      bannerImage,
+      rules,
+      contactEmail
+    });
+    res.status(201).json({ message: 'Hackathon created', hackathon });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to create hackathon', error: err.message });
+  }
+}
+
+// Update an existing hackathon
+async function updateHackathon(req, res) {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      description,
+      customerId,
+      customerName,
+      organizer,
+      startDate,
+      endDate,
+      registrationDeadline,
+      maxTeamSize,
+      prizes,
+      status,
+      eligibility,
+      levels,
+      bannerImage,
+      rules,
+      contactEmail
+    } = req.body;
+
+    if (!name || !description || !startDate || !endDate || !registrationDeadline || !maxTeamSize) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const hackathon = await Hackathon.findByIdAndUpdate(
+      id,
+      {
+        name,
+        description,
+        customerId,
+        customerName,
+        organizer,
+        startDate,
+        endDate,
+        registrationDeadline,
+        maxTeamSize,
+        prizes,
+        status,
+        eligibility,
+        levels,
+        bannerImage,
+        rules,
+        contactEmail
+      },
+      { new: true }
+    );
+    if (!hackathon) {
+      return res.status(404).json({ message: 'Hackathon not found' });
+    }
+    res.json({ message: 'Hackathon updated', hackathon });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update hackathon', error: err.message });
+  }
+}
+
+module.exports = { markHackathonWinner, getAllHackathons, createHackathon, updateHackathon }; 

@@ -40,6 +40,8 @@ import Modal from '../components/Modal';
 import InputField from '../components/InputField';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../utils/axiosConfig';
+import { useEffect } from 'react';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -86,128 +88,11 @@ const AdminDashboard = () => {
     createdAt: ''
   });
 
-  // Mock data for customers
-  const [customers, setCustomers] = useState([
-    {
-      id: 1,
-      name: 'TechCorp Solutions',
-      email: 'contact@techcorp.com',
-      phone: '+1-555-0123',
-      company: 'TechCorp Solutions Inc.',
-      address: '123 Tech Street, Silicon Valley, CA',
-      website: 'https://techcorp.com',
-      contactPerson: 'John Smith',
-      status: 'active',
-      hackathonsCount: 5,
-      createdAt: '2023-01-15'
-    },
-    {
-      id: 2,
-      name: 'InnovateLab',
-      email: 'hello@innovatelab.io',
-      phone: '+1-555-0456',
-      company: 'InnovateLab Technologies',
-      address: '456 Innovation Ave, Austin, TX',
-      website: 'https://innovatelab.io',
-      contactPerson: 'Sarah Johnson',
-      status: 'active',
-      hackathonsCount: 3,
-      createdAt: '2023-03-20'
-    },
-    {
-      id: 3,
-      name: 'GreenTech Ventures',
-      email: 'info@greentech.com',
-      phone: '+1-555-0789',
-      company: 'GreenTech Ventures LLC',
-      address: '789 Eco Drive, Portland, OR',
-      website: 'https://greentech.com',
-      contactPerson: 'Mike Davis',
-      status: 'inactive',
-      hackathonsCount: 2,
-      createdAt: '2023-06-10'
-    }
-  ]);
+  const [customers, setCustomers] = useState([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
 
-  // Mock data for hackathons
-  const [hackathons, setHackathons] = useState([
-    {
-      id: 1,
-      name: 'AI Innovation Challenge',
-      description: 'Build innovative AI solutions for everyday problems',
-      customer: 'TechCorp Solutions',
-      customerId: 1,
-      startDate: '2024-01-14T00:00:00Z',
-      endDate: '2024-01-16T23:59:59Z',
-      registrationDeadline: '2024-01-13T23:59:59Z',
-      maxTeamSize: 4,
-      prizes: ['$10,000', '$5,000', '$2,500'],
-      status: 'active',
-      eligibility: 'students',
-      participants: 156,
-      teams: 42,
-      submissions: 28,
-      levels: [],
-      createdAt: '2024-01-14T00:00:00Z'
-    },
-    {
-      id: 2,
-      name: 'Green Tech Hackathon',
-      description: 'Sustainable technology solutions for environmental challenges',
-      customer: 'GreenTech Ventures',
-      customerId: 3,
-      startDate: '2024-01-22T00:00:00Z',
-      endDate: '2024-01-24T23:59:59Z',
-      registrationDeadline: '2024-01-21T23:59:59Z',
-      maxTeamSize: 5,
-      prizes: ['$15,000', '$8,000', '$3,000'],
-      status: 'upcoming',
-      eligibility: 'both',
-      participants: 89,
-      teams: 23,
-      submissions: 0,
-      levels: [],
-      createdAt: '2024-01-22T00:00:00Z'
-    },
-    {
-      id: 3,
-      name: 'Fintech Solutions Challenge',
-      description: 'Revolutionary financial technology innovations',
-      customer: 'InnovateLab',
-      customerId: 2,
-      startDate: '2024-01-28T00:00:00Z',
-      endDate: '2024-01-30T23:59:59Z',
-      registrationDeadline: '2024-01-27T23:59:59Z',
-      maxTeamSize: 3,
-      prizes: ['$12,000', '$6,000', '$2,000'],
-      status: 'upcoming',
-      eligibility: 'professionals',
-      participants: 67,
-      teams: 18,
-      submissions: 0,
-      levels: [],
-      createdAt: '2024-01-28T00:00:00Z'
-    },
-    {
-      id: 4,
-      name: 'Healthcare Innovation Summit',
-      description: 'Digital health solutions for better patient care',
-      customer: 'TechCorp Solutions',
-      customerId: 1,
-      startDate: '2024-01-05T00:00:00Z',
-      endDate: '2024-01-07T23:59:59Z',
-      registrationDeadline: '2024-01-04T23:59:59Z',
-      maxTeamSize: 4,
-      prizes: ['$8,000', '$4,000', '$1,500'],
-      status: 'completed',
-      eligibility: 'both',
-      participants: 134,
-      teams: 35,
-      submissions: 32,
-      levels: [],
-      createdAt: '2024-01-05T00:00:00Z'
-    }
-  ]);
+  const [hackathons, setHackathons] = useState([]);
+  const [loadingHackathons, setLoadingHackathons] = useState(true);
 
   // Mock data for Q&A
   const [qnaData, setQnaData] = useState([
@@ -287,88 +172,89 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleSaveHackathon = () => {
+  const handleSaveHackathon = async () => {
     if (!hackathonData.name.trim()) {
       error('Hackathon name is required');
       return;
     }
-
-    // Helper to ensure date is in YYYY-MM-DDT00:00:00Z format
-    const toISO = (dateStr, timeStr) => {
-      if (!dateStr) return '';
-      const t = timeStr || '00:00';
-      return `${dateStr}T${t}:00Z`;
-    };
-
-    // Prepare levels with midnight deadlines
-    const levelsWithDeadlineISO = (hackathonData.levels || []).map(level => ({
-      ...level,
-      deadline: toISO(level.deadline, level.deadlineTime)
-    }));
-
-    const hackathonToSave = {
-      ...hackathonData,
-      startDate: toISO(hackathonData.startDate, hackathonData.startTime),
-      endDate: toISO(hackathonData.endDate, hackathonData.endTime),
-      registrationDeadline: toISO(hackathonData.registrationDeadline, hackathonData.registrationDeadlineTime),
-      levels: levelsWithDeadlineISO,
-      createdAt: selectedItem ? hackathonData.createdAt : new Date().toISOString()
-    };
-
-    if (selectedItem) {
-      // Update existing hackathon
-      setHackathons(prev => prev.map(h =>
-        h.id === selectedItem.id
-          ? { ...h, ...hackathonToSave, customer: customers.find(c => c.id === parseInt(hackathonData.customerId))?.name || '' }
-          : h
-      ));
-      success('Hackathon updated successfully!');
-    } else {
-      // Create new hackathon
-      const newHackathon = {
-        id: Date.now(),
-        ...hackathonToSave,
-        customer: customers.find(c => c.id === parseInt(hackathonData.customerId))?.name || '',
-        participants: 0,
-        teams: 0,
-        submissions: 0
-      };
-      setHackathons(prev => [newHackathon, ...prev]);
-      success('Hackathon created successfully!');
+    if (!hackathonData.startDate || !hackathonData.endDate || !hackathonData.registrationDeadline) {
+      error('Please fill all required date fields');
+      return;
     }
-
-    setShowHackathonModal(false);
-    setSelectedItem(null);
-    resetHackathonForm();
+    if (!hackathonData.maxTeamSize) {
+      error('Max team size is required');
+      return;
+    }
+    setLoadingHackathons(true);
+    try {
+      const toISO = (dateStr, timeStr) => {
+        if (!dateStr) return '';
+        const t = timeStr || '00:00';
+        return `${dateStr}T${t}:00Z`;
+      };
+      const levelsWithDeadlineISO = (hackathonData.levels || []).map(level => ({
+        ...level,
+        deadline: toISO(level.deadline, level.deadlineTime)
+      }));
+      const payload = {
+        ...hackathonData,
+        startDate: toISO(hackathonData.startDate, hackathonData.startTime),
+        endDate: toISO(hackathonData.endDate, hackathonData.endTime),
+        registrationDeadline: toISO(hackathonData.registrationDeadline, hackathonData.registrationDeadlineTime),
+        levels: levelsWithDeadlineISO,
+        customerName: customers.find(c => String(c._id) === String(hackathonData.customerId))?.name || '',
+        customerId: hackathonData.customerId,
+      };
+      let res;
+      if (selectedItem && selectedItem._id) {
+        // Update existing hackathon
+        res = await api.put(`/hackathons/${selectedItem._id}`, payload);
+        success('Hackathon updated successfully!');
+      } else {
+        // Create new hackathon
+        res = await api.post('/hackathons', payload);
+        success('Hackathon created successfully!');
+      }
+      // Refresh hackathons list
+      const refreshed = await api.get('/admin/hackathons');
+      setHackathons(refreshed.data.hackathons || []);
+      setShowHackathonModal(false);
+      setSelectedItem(null);
+      resetHackathonForm();
+    } catch (e) {
+      error(e.response?.data?.message || 'Failed to save hackathon');
+    } finally {
+      setLoadingHackathons(false);
+    }
   };
 
-  const handleSaveCustomer = () => {
+  const handleSaveCustomer = async () => {
     if (!customerData.name.trim()) {
       error('Customer name is required');
       return;
     }
-    
+    setLoadingCustomers(true);
+    try {
+      let res;
     if (selectedItem) {
-      // Update existing customer
-      setCustomers(prev => prev.map(c => 
-        c.id === selectedItem.id ? { ...c, ...customerData } : c
-      ));
-      success('Customer updated successfully!');
+        // Update existing customer (not implemented here)
+        // You can add update logic if needed
     } else {
       // Create new customer
-      const newCustomer = {
-        id: Date.now(),
-        ...customerData,
-        hackathonsCount: 0,
-        createdAt: new Date().toISOString()
-      };
-      setCustomers(prev => [newCustomer, ...prev]);
+        res = await api.post('/admin/customers', customerData);
       success('Customer created successfully!');
     }
-    
+      // Refresh customers list
+      const refreshed = await api.get('/admin/customers');
+      setCustomers(refreshed.data.customers || []);
     setShowCustomerModal(false);
     setSelectedItem(null);
     resetCustomerForm();
+    } catch (e) {
+      error(e.response?.data?.message || 'Failed to create customer');
+    } finally {
+      setLoadingCustomers(false);
+    }
   };
 
   const handleReplyToQuestion = (questionId, reply) => {
@@ -509,10 +395,11 @@ const AdminDashboard = () => {
   };
 
   const filteredHackathons = hackathons.filter(hackathon => {
+    const customerName = customers.find(c => String(c._id) === String(hackathon.customerId))?.name || '';
     const matchesSearch = hackathon.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         hackathon.customer.toLowerCase().includes(searchTerm.toLowerCase());
+      customerName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || hackathon.status === filterStatus;
-    const matchesCustomer = filterCustomer === 'all' || hackathon.customerId.toString() === filterCustomer;
+    const matchesCustomer = filterCustomer === 'all' || String(hackathon.customerId || '') === filterCustomer;
     return matchesSearch && matchesStatus && matchesCustomer;
   });
 
@@ -556,6 +443,36 @@ const AdminDashboard = () => {
         return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
     }
   };
+
+  useEffect(() => {
+    async function fetchHackathons() {
+      setLoadingHackathons(true);
+      try {
+        const res = await api.get('/admin/hackathons');
+        setHackathons(res.data.hackathons || []);
+      } catch (e) {
+        error('Failed to fetch hackathons');
+      } finally {
+        setLoadingHackathons(false);
+      }
+    }
+    fetchHackathons();
+  }, []);
+
+  useEffect(() => {
+    async function fetchCustomers() {
+      setLoadingCustomers(true);
+      try {
+        const res = await api.get('/admin/customers');
+        setCustomers(res.data.customers || []);
+      } catch (e) {
+        error('Failed to fetch customers');
+      } finally {
+        setLoadingCustomers(false);
+      }
+    }
+    fetchCustomers();
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -699,7 +616,7 @@ const AdminDashboard = () => {
                   >
                     <option value="all">All Customers</option>
                     {customers.map(customer => (
-                      <option key={customer.id} value={customer.id.toString()}>
+                      <option key={String(customer._id || customer.id || customer.name)} value={String(customer._id || customer.id || '')}>
                         {customer.name}
                       </option>
                     ))}
@@ -726,10 +643,13 @@ const AdminDashboard = () => {
 
           {/* Content based on active tab */}
           {activeTab === 'hackathons' && (
+            loadingHackathons ? (
+              <div className="text-gray-400">Loading hackathons...</div>
+            ) : (
             <div className="space-y-4">
               {filteredHackathons.map((hackathon, index) => (
                 <motion.div
-                  key={hackathon.id}
+                    key={hackathon._id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
@@ -747,7 +667,7 @@ const AdminDashboard = () => {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-400">
                         <div>
                           <span className="font-medium text-gray-300">Customer:</span>
-                          <p>{hackathon.customer}</p>
+                            <p>{customers.find(c => String(c._id) === String(hackathon.customerId))?.name || 'N/A'}</p>
                         </div>
                         <div>
                           <span className="font-medium text-gray-300">Participants:</span>
@@ -767,7 +687,7 @@ const AdminDashboard = () => {
                       <Button size="sm" variant="outline" onClick={() => openEditModal(hackathon, 'hackathon')}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="danger" onClick={() => handleDeleteHackathon(hackathon.id)}>
+                        <Button size="sm" variant="danger" onClick={() => handleDeleteHackathon(hackathon._id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -781,16 +701,20 @@ const AdminDashboard = () => {
                 </motion.div>
               ))}
             </div>
+            )
           )}
 
           {activeTab === 'customers' && (
+            loadingCustomers ? (
+              <div className="text-gray-400">Loading customers...</div>
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {filteredCustomers.map((customer, index) => (
+                {filteredCustomers.map((customer) => (
                 <motion.div
-                  key={customer.id}
+                    key={String(customer._id || customer.id || customer.name)}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                    transition={{ delay: 0.1 }}
                 >
                   <Card className="p-6">
                     <div className="flex items-start justify-between mb-4">
@@ -837,13 +761,13 @@ const AdminDashboard = () => {
                     </div>
                     
                     <div className="flex items-center justify-between pt-4 border-t border-slate-700 text-sm">
-                      <span className="text-gray-400">Hackathons: {customer.hackathonsCount}</span>
                       <span className="text-gray-400">Joined: {formatDate(customer.createdAt)}</span>
                     </div>
                   </Card>
                 </motion.div>
               ))}
             </div>
+            )
           )}
 
           {activeTab === 'qna' && (
@@ -932,7 +856,7 @@ const AdminDashboard = () => {
               >
                 <option value="">Select Customer</option>
                 {customers.filter(c => c.status === 'active').map(customer => (
-                  <option key={customer.id} value={customer.id.toString()}>
+                  <option key={String(customer._id || customer.id || customer.name)} value={String(customer._id || customer.id || '')}>
                     {customer.name}
                   </option>
                 ))}

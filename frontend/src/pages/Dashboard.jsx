@@ -224,43 +224,6 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* Available Hackathons Section
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-white mb-4">Available Hackathons</h2>
-        {loadingHackathons ? (
-          <div className="text-gray-400">Loading hackathons...</div>
-        ) : hackathons.length === 0 ? (
-          <div className="text-gray-400">No hackathons available at the moment.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {hackathons.map(hackathon => (
-              <Card key={hackathon._id} className="p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-white">{hackathon.name}</h3>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full border ${
-                    hackathon.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                    hackathon.status === 'upcoming' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
-                    hackathon.status === 'completed' ? 'bg-gray-500/20 text-gray-300 border-gray-500/30' :
-                    'bg-gray-500/20 text-gray-300 border-gray-500/30'
-                  }`}>
-                    {hackathon.status}
-                  </span>
-                </div>
-                <p className="text-gray-300 mb-2 line-clamp-2">{hackathon.description}</p>
-                <div className="flex items-center text-xs text-gray-400 mb-1">
-                  <span>Start: {new Date(hackathon.startDate).toLocaleDateString()}</span>
-                  <span className="mx-2">|</span>
-                  <span>End: {new Date(hackathon.endDate).toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center text-xs text-gray-400">
-                  <span>Max Team Size: {hackathon.maxTeamSize}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div> */}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
         {/* Upcoming Events */}
         <motion.div
@@ -269,6 +232,7 @@ const Dashboard = () => {
           transition={{ delay: 0.2 }}
           className="w-full"
         >
+          {/* Upcoming Events*/}
           <Card className="p-6 w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Upcoming Events</h2>
@@ -307,7 +271,47 @@ const Dashboard = () => {
                   </div>
                 ))}
             </div>
-            </Card>
+          </Card>
+          
+          {/* Past Events*/}
+          <Card className="p-6 w-full mt-3">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white">Past Events</h2>
+              <Link className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center group">
+                View All
+                <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+            <div className="space-y-4">
+              {hackathons
+                .filter(h => h.status === 'completed')
+                .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+                .map((hackathon) => (
+                  <div key={hackathon._id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
+                    <div className="flex-1">
+                      <Link to="/schedule" className="font-medium text-white text-base hover:text-blue-300 transition-colors">
+                        {hackathon.name}
+                      </Link>
+                      <div className="flex items-center text-sm text-gray-400 mt-1">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {new Date(hackathon.startDate).toLocaleDateString()} - {new Date(hackathon.endDate).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-400 mt-1">
+                        <Users className="h-4 w-4 mr-1" />
+                        {hackathon.participants ? hackathon.participants.length : 0} participants
+                      </div>
+                    </div>
+                    <span className={`px-3 py-1 text-xs font-medium rounded border ${
+                      hackathon.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      hackathon.status === 'upcoming' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                      'bg-gray-500/20 text-gray-300 border-gray-500/30'
+                    }`}>
+                      {hackathon.status.charAt(0).toUpperCase() + hackathon.status.slice(1)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </Card>
         </motion.div>
 
         {/* Recent Activity */}
@@ -317,7 +321,7 @@ const Dashboard = () => {
           transition={{ delay: 0.3 }}
           className="w-full"
         >
-          <Card className="p-6 w-full">
+          <Card className="p-6 w-full mt-10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
               <Activity className="h-5 w-5 text-gray-400" />
