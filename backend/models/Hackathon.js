@@ -17,12 +17,15 @@ const hackathonSchema = new mongoose.Schema({
     name: { type: String, required: true },
     deadline: { type: Date, required: true },
   }],
+  problem_statements: [{
+    _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+  }],
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   teams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Team' }],
   submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Submission' }],
   winners: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  bannerImage: { type: String, default: '' },
-  rules: { type: String, default: '' },
   contactEmail: { type: String, default: '' },
 }, { timestamps: true });
 

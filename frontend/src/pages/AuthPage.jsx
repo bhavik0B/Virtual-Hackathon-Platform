@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Github, Mail, Code2, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import Button from '../components/Button'; 
+import Button from '../components/Button';
 
 const AuthPage = () => {
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ const AuthPage = () => {
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
       if (user.isAdmin) {  // mdr
-        navigate('/admin');
+      navigate('/admin');
       } else {
         navigate('/dashboard');
       }

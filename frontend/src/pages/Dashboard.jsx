@@ -17,7 +17,7 @@ import {
   Award,
   X
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [showProjectsModal, setShowProjectsModal] = useState(false);
   const [hackathons, setHackathons] = useState([]);
   const [loadingHackathons, setLoadingHackathons] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function fetchHackathons() {
@@ -37,7 +38,7 @@ const Dashboard = () => {
         const res = await api.get('/hackathons');
         setHackathons(res.data.hackathons || []);
       } catch (e) {
-        // Optionally show error
+        console.log(e);
       } finally {
         setLoadingHackathons(false);
       }
@@ -248,7 +249,12 @@ const Dashboard = () => {
                 .map((hackathon) => (
                   <div key={hackathon._id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
                     <div className="flex-1">
-                      <Link to="/schedule" className="font-medium text-white text-base hover:text-blue-300 transition-colors">
+                      <Link to="#" className="font-medium text-white text-base hover:text-blue-300 transition-colors"
+                        onClick={e => {
+                          e.preventDefault();
+                          navigate('/hackathon-info', { state: { hackathon } });
+                        }}
+                      >
                         {hackathon.name}
                       </Link>
                       <div className="flex items-center text-sm text-gray-400 mt-1">
@@ -292,7 +298,12 @@ const Dashboard = () => {
                 .map((hackathon) => (
                   <div key={hackathon._id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
                     <div className="flex-1">
-                      <Link to="/schedule" className="font-medium text-white text-base hover:text-blue-300 transition-colors">
+                      <Link to="#" className="font-medium text-white text-base hover:text-blue-300 transition-colors"
+                        onClick={e => {
+                          e.preventDefault();
+                          navigate('/hackathon-info', { state: { hackathon } });
+                        }}
+                      >
                         {hackathon.name}
                       </Link>
                       <div className="flex items-center text-sm text-gray-400 mt-1">

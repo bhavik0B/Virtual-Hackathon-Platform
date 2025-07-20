@@ -72,7 +72,8 @@ const AdminDashboard = () => {
     status: 'upcoming',
     eligibility: 'both',
     levels: [],
-    createdAt: ''
+    createdAt: '',
+    problem_statements: []
   });
 
   // Customer form data
@@ -187,40 +188,40 @@ const AdminDashboard = () => {
     }
     setLoadingHackathons(true);
     try {
-      const toISO = (dateStr, timeStr) => {
-        if (!dateStr) return '';
-        const t = timeStr || '00:00';
-        return `${dateStr}T${t}:00Z`;
-      };
-      const levelsWithDeadlineISO = (hackathonData.levels || []).map(level => ({
-        ...level,
-        deadline: toISO(level.deadline, level.deadlineTime)
-      }));
+    const toISO = (dateStr, timeStr) => {
+      if (!dateStr) return '';
+      const t = timeStr || '00:00';
+      return `${dateStr}T${t}:00Z`;
+    };
+    const levelsWithDeadlineISO = (hackathonData.levels || []).map(level => ({
+      ...level,
+      deadline: toISO(level.deadline, level.deadlineTime)
+    }));
       const payload = {
-        ...hackathonData,
-        startDate: toISO(hackathonData.startDate, hackathonData.startTime),
-        endDate: toISO(hackathonData.endDate, hackathonData.endTime),
-        registrationDeadline: toISO(hackathonData.registrationDeadline, hackathonData.registrationDeadlineTime),
-        levels: levelsWithDeadlineISO,
+      ...hackathonData,
+      startDate: toISO(hackathonData.startDate, hackathonData.startTime),
+      endDate: toISO(hackathonData.endDate, hackathonData.endTime),
+      registrationDeadline: toISO(hackathonData.registrationDeadline, hackathonData.registrationDeadlineTime),
+      levels: levelsWithDeadlineISO,
         customerName: customers.find(c => String(c._id) === String(hackathonData.customerId))?.name || '',
         customerId: hackathonData.customerId,
-      };
+    };
       let res;
       if (selectedItem && selectedItem._id) {
-        // Update existing hackathon
+      // Update existing hackathon
         res = await api.put(`/hackathons/${selectedItem._id}`, payload);
-        success('Hackathon updated successfully!');
-      } else {
-        // Create new hackathon
+      success('Hackathon updated successfully!');
+    } else {
+      // Create new hackathon
         res = await api.post('/hackathons', payload);
-        success('Hackathon created successfully!');
-      }
+      success('Hackathon created successfully!');
+    }
       // Refresh hackathons list
       const refreshed = await api.get('/admin/hackathons');
       setHackathons(refreshed.data.hackathons || []);
-      setShowHackathonModal(false);
-      setSelectedItem(null);
-      resetHackathonForm();
+    setShowHackathonModal(false);
+    setSelectedItem(null);
+    resetHackathonForm();
     } catch (e) {
       error(e.response?.data?.message || 'Failed to save hackathon');
     } finally {
@@ -298,7 +299,8 @@ const AdminDashboard = () => {
       status: 'upcoming',
       eligibility: 'both',
       levels: [],
-      createdAt: ''
+      createdAt: '',
+      problem_statements: []
     });
   };
 
@@ -338,7 +340,11 @@ const AdminDashboard = () => {
           deadline: level.deadline ? level.deadline.split('T')[0] : '',
           deadlineTime: level.deadline ? (level.deadline.split('T')[1] ? level.deadline.split('T')[1].slice(0,5) : '00:00') : '00:00'
         })),
-        createdAt: item.createdAt
+        createdAt: item.createdAt,
+        problem_statements: (item.problem_statements || []).map(ps => ({
+          name: ps.name,
+          description: ps.description
+        }))
       });
       setShowHackathonModal(true);
     } else {
@@ -389,6 +395,7 @@ const AdminDashboard = () => {
       status: 'upcoming',
       eligibility: 'both',
       levels: [],
+      problem_statements: [],
       createdAt: new Date().toISOString()
     });
     setShowHackathonModal(true);
@@ -641,7 +648,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Content based on active tab */}
+          {/* Hackathon Tab */}
           {activeTab === 'hackathons' && (
             loadingHackathons ? (
               <div className="text-gray-400">Loading hackathons...</div>
@@ -704,6 +711,7 @@ const AdminDashboard = () => {
             )
           )}
 
+          {/* Customers Tab */}
           {activeTab === 'customers' && (
             loadingCustomers ? (
               <div className="text-gray-400">Loading customers...</div>
@@ -1039,6 +1047,56 @@ const AdminDashboard = () => {
                       }}
                     />
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Number of Problem Statements</label>
+            <InputField
+              type="number"
+              min="0"
+              value={hackathonData.problem_statements ? hackathonData.problem_statements.length : 0}
+              onChange={e => {
+                const num = parseInt(e.target.value) || 0;
+                let newPS = [...(hackathonData.problem_statements || [])];
+                if (num > newPS.length) {
+                  for (let i = newPS.length; i < num; i++) {
+                    newPS.push({ name: '', description: '' });
+                  }
+                } else if (num < newPS.length) {
+                  newPS = newPS.slice(0, num);
+                }
+                handleInputChange('problem_statements', newPS);
+              }}
+            />
+          </div>
+
+          {hackathonData.problem_statements && hackathonData.problem_statements.length > 0 && (
+            <div className="space-y-2 mt-2">
+              {hackathonData.problem_statements.map((ps, idx) => (
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                  <InputField
+                    label={`Problem Statement ${idx + 1} Name`}
+                    placeholder={`Enter name for problem statement ${idx + 1}`}
+                    value={ps.name}
+                    onChange={e => {
+                      const newPS = [...hackathonData.problem_statements];
+                      newPS[idx].name = e.target.value;
+                      handleInputChange('problem_statements', newPS);
+                    }}
+                  />
+                  <InputField
+                    label={`Description`}
+                    placeholder={`Enter description for problem statement ${idx + 1}`}
+                    value={ps.description}
+                    onChange={e => {
+                      const newPS = [...hackathonData.problem_statements];
+                      newPS[idx].description = e.target.value;
+                      handleInputChange('problem_statements', newPS);
+                    }}
+                  />
                 </div>
               ))}
             </div>

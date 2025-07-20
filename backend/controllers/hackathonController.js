@@ -41,12 +41,11 @@ async function createHackathon(req, res) {
       status,
       eligibility,
       levels,
-      bannerImage,
-      rules,
+      problem_statements,
       contactEmail
     } = req.body;
 
-    if (!name || !description || !startDate || !endDate || !registrationDeadline || !maxTeamSize) {
+    if (!name || !description || !startDate || !endDate || !registrationDeadline || !maxTeamSize || !problem_statements) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -64,8 +63,7 @@ async function createHackathon(req, res) {
       status,
       eligibility,
       levels,
-      bannerImage,
-      rules,
+      problem_statements,
       contactEmail
     });
     res.status(201).json({ message: 'Hackathon created', hackathon });
@@ -92,12 +90,11 @@ async function updateHackathon(req, res) {
       status,
       eligibility,
       levels,
-      bannerImage,
-      rules,
+      problem_statements,
       contactEmail
     } = req.body;
 
-    if (!name || !description || !startDate || !endDate || !registrationDeadline || !maxTeamSize) {
+    if (!name || !description || !startDate || !endDate || !registrationDeadline || !maxTeamSize || !problem_statements) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -117,8 +114,7 @@ async function updateHackathon(req, res) {
         status,
         eligibility,
         levels,
-        bannerImage,
-        rules,
+        problem_statements,
         contactEmail
       },
       { new: true }

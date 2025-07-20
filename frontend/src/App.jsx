@@ -9,7 +9,7 @@ import Dashboard from './pages/Dashboard';
 import TeamManagement from './pages/TeamManagement';
 import EditorWorkspace from './pages/EditorWorkspace';
 import ProjectSubmission from './pages/ProjectSubmission';
-import HackathonSchedule from './pages/HackathonSchedule';
+import HackathonInfo from './pages/HackathonInfo';
 import JoinHackathon from './pages/JoinHackathon';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
@@ -111,10 +111,10 @@ function App() {
                   </Layout>
                 </ProtectedRoute>
               } />
-              <Route path="/schedule" element={
+              <Route path="/hackathon-info" element={
                 <ProtectedRoute>
                   <Layout>
-                    <HackathonSchedule />
+                    <HackathonInfo />
                   </Layout>
                 </ProtectedRoute>
               } />
