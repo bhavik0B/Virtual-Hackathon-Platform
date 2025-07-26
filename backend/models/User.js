@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
   hackathonsWon: { type: Number, default: 0 },
   projectsCompleted: { type: Number, default: 0 },
   teamsJoined: { type: Number, default: 0 },
+  hackathonsParticipated: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Hackathon' }], // Array of hackathon IDs
 }, { strict: false });
 
 module.exports = mongoose.model('User', userSchema); 

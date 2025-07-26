@@ -9,6 +9,7 @@ const teamSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   skills: [{ type: String }],
   maxMembers: { type: Number, default: 5 },
+  hackathonsParticipated: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Hackathon' }], // Array of hackathon IDs
 }, { timestamps: true });
 
 // Custom validator to ensure members.length <= maxMembers

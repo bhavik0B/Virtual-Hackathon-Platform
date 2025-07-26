@@ -118,17 +118,36 @@ const JoinHackathon = () => {
     setCurrentStep(prev => prev - 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Call backend API to register for hackathon
+      const registrationData = {
+        hackathonId: hackathonData._id,
+        userId: user._id,
+        teamId: createdTeam?._id || null
+      };
+
+      console.log('=== FRONTEND REGISTRATION DATA ===');
+      console.log('hackathonData:', hackathonData);
+      console.log('user:', user);
+      console.log('createdTeam:', createdTeam);
+      console.log('registrationData being sent:', registrationData);
+
+      await api.post('/hackathons/register', registrationData);
+      
       success(`Successfully registered for ${hackathonData.name}!`);
       navigate('/hackathon-info', { state: { hackathon: hackathonData } });
+    } catch (err) {
+      console.error('Registration error:', err);
+      console.error('Error response:', err.response?.data);
+      error(err.response?.data?.message || 'Failed to register for hackathon');
+    } finally {
       setIsSubmitting(false);
-    }, 2000);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -397,8 +416,8 @@ const JoinHackathon = () => {
         description: teamDescription.trim(),
         maxMembers,
         skills: skills.split(',').map(s => s.trim()).filter(Boolean),
-        
       });
+      
       success(`Team "${teamName}" created successfully!`);
       setShowCreateTeamModal(false);
       setTeamName('');

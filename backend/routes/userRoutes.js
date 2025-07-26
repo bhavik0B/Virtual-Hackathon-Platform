@@ -4,7 +4,7 @@ const { google } = require('googleapis');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const mongoose = require('mongoose');
-const { getUserProfile } = require('../controllers/userController');
+const { getUserProfile, getUserHackathons } = require('../controllers/userController');
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -423,6 +423,9 @@ router.get('/verify', async (req, res) => {
 
 // Fetch user profile by ID
 router.get('/:id', getUserProfile);
+
+// Fetch user's hackathon participation
+router.get('/:id/hackathons', getUserHackathons);
 
 // Test endpoint to check database connection and user queries
 router.get('/test-db', async (req, res) => {
