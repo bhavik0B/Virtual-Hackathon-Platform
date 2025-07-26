@@ -1,24 +1,76 @@
-# Logs
-logs
-*.log
+# Dependencies
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Frontend (React/Vite) specific
+Virtual-Hackathon-Platform/frontend/dist/
+Virtual-Hackathon-Platform/frontend/build/
+Virtual-Hackathon-Platform/frontend/.vite/
+Virtual-Hackathon-Platform/frontend/coverage/
+Virtual-Hackathon-Platform/frontend/node_modules/
+Virtual-Hackathon-Platform/frontend/.env.local
+Virtual-Hackathon-Platform/frontend/.env.development.local
+Virtual-Hackathon-Platform/frontend/.env.test.local
+Virtual-Hackathon-Platform/frontend/.env.production.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Backend specific
+Virtual-Hackathon-Platform/backend/uploads/
+Virtual-Hackathon-Platform/backend/node_modules/
+Virtual-Hackathon-Platform/backend/logs/
+Virtual-Hackathon-Platform/backend/.env
+Virtual-Hackathon-Platform/backend/.env.local
+Virtual-Hackathon-Platform/backend/.env.development
+Virtual-Hackathon-Platform/backend/.env.test
+Virtual-Hackathon-Platform/backend/.env.production
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs
+*.log
+
+# OS generated files
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build artifacts
+build/
+dist/
+
+# Environment variables (root level)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+
+# Cache directories
+.cache/
+.eslintcache
+.stylelintcache
+
+.bfg-1.14.0.jar
