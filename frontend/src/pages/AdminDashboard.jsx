@@ -151,7 +151,7 @@ const AdminDashboard = () => {
     { label: 'Total Hackathons', value: hackathons.length.toString(), icon: Trophy, color: 'bg-blue-500' },
     { label: 'Active Customers', value: customers.filter(c => c.status === 'active').length.toString(), icon: Building, color: 'bg-green-500' },
     { label: 'Pending Q&A', value: qnaData.filter(q => q.status === 'pending').length.toString(), icon: MessageSquare, color: 'bg-orange-500' },
-    { label: 'Total Participants', value: hackathons.reduce((sum, h) => sum + h.participants, 0).toString(), icon: Users, color: 'bg-purple-500' }
+    { label: 'Total Participants', value: hackathons.reduce((sum, h) => sum + h.participants.length, 0).toString(), icon: Users, color: 'bg-purple-500' }
   ];
 
   const tabs = [
@@ -191,7 +191,9 @@ const AdminDashboard = () => {
     const toISO = (dateStr, timeStr) => {
       if (!dateStr) return '';
       const t = timeStr || '00:00';
-      return `${dateStr}T${t}:00Z`;
+      // Create a proper Date object in local timezone, then convert to ISO
+      const localDateTime = new Date(`${dateStr}T${t}`);
+      return localDateTime.toISOString();
     };
     const levelsWithDeadlineISO = (hackathonData.levels || []).map(level => ({
       ...level,
@@ -673,20 +675,16 @@ const AdminDashboard = () => {
                       <p className="text-sm text-gray-400 mb-2">{hackathon.description}</p>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-400">
                         <div>
-                          <span className="font-medium text-gray-300">Customer:</span>
-                            <p>{customers.find(c => String(c._id) === String(hackathon.customerId))?.name || 'N/A'}</p>
+                          <span className="font-medium text-gray-300">Customer: {customers.find(c => String(c._id) === String(hackathon.customerId))?.name || 'N/A'}</span>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-300">Participants:</span>
-                          <p>{hackathon.participants}</p>
+                          <span className="font-medium text-gray-300">Participants: {hackathon.participants.length}</span>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-300">Teams:</span>
-                          <p>{hackathon.teams}</p>
+                          <span className="font-medium text-gray-300">Teams: {hackathon.teams.length}</span>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-300">Submissions:</span>
-                          <p>{hackathon.submissions}</p>
+                          <span className="font-medium text-gray-300">Submissions: {hackathon.submissions.length}</span>
                         </div>
                       </div>
                     </div>

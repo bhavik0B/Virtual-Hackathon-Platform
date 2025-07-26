@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { 
   Calendar, 
   Clock, 
@@ -35,13 +34,16 @@ import Modal from '../components/Modal';
 import InputField from '../components/InputField';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import api from '../utils/axiosConfig';
 
 const HackathonInfo = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { success } = useToast();
+  const { success, error } = useToast();
   const location = useLocation();
   const hackathon = location.state?.hackathon;
+  const [isCheckingRegistration, setIsCheckingRegistration] = useState(false);
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
 
   // If no hackathon is passed, redirect back to dashboard
   useEffect(() => {
@@ -49,6 +51,35 @@ const HackathonInfo = () => {
       navigate('/dashboard');
     }
   }, [hackathon, navigate]);
+
+  // Check if user is already registered for this hackathon
+  useEffect(() => {
+    const checkRegistrationStatus = async () => {
+      if (!hackathon?._id || !user?._id) return;
+      
+      setIsCheckingRegistration(true);
+      try {
+        const response = await api.get(`/hackathons/${hackathon._id}/check-registration`);
+        setIsAlreadyRegistered(response.data.isRegistered);
+      } catch (err) {
+        console.error('Failed to check registration status:', err);
+        // If there's an error checking, we'll assume they're not registered
+        setIsAlreadyRegistered(false);
+      } finally {
+        setIsCheckingRegistration(false);
+      }
+    };
+
+    checkRegistrationStatus();
+  }, [hackathon?._id, user?._id]);
+
+  const handleJoinHackathon = () => {
+    if (isAlreadyRegistered) {
+      error("You've already registered for this hackathon.");
+      return;
+    }
+    navigate('/join-hackathon', { state: { hackathon } });
+  };
 
   if (!hackathon) return null;
 
@@ -75,11 +106,26 @@ const HackathonInfo = () => {
           <Button onClick={() => navigate(-1)} variant="outline">
             Back
           </Button>
-          <Button onClick={() => navigate('/join-hackathon', { state: { hackathon } })}>
-            Join Hackathon
+          <Button 
+            onClick={handleJoinHackathon}
+            disabled={isCheckingRegistration || isAlreadyRegistered}
+            loading={isCheckingRegistration}
+          >
+            {isCheckingRegistration ? 'Checking...' : 
+             isAlreadyRegistered ? 'Already Registered' : 'Join Hackathon'}
           </Button>
         </div>
       </div>
+
+      {/* Registration Status Alert */}
+      {isAlreadyRegistered && (
+        <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="h-5 w-5 text-blue-400" />
+            <span className="text-blue-300 font-medium">You've already registered for this hackathon.</span>
+          </div>
+        </div>
+      )}
 
       {/* Hackathon Info Card (styled like JoinHackathon) */}
       <Card className="p-6 mb-4">
@@ -101,7 +147,12 @@ const HackathonInfo = () => {
           <div>
             <div className="text-gray-300 mb-2"><b>Customer:</b> {hackathon.customerName || 'N/A'}</div>
             <div className="text-gray-300 mb-2"><b>Status:</b> {hackathon.status}</div>
-            <div className="text-gray-300 mb-2"><b>Eligibility:</b> {hackathon.eligibility}</div>
+            <div className="text-gray-300 mb-2"><b>Eligibility:</b> {
+              hackathon.eligibility === 'both' ? 'Students and Professionals' :
+              hackathon.eligibility === 'students' ? 'Students Only' :
+              hackathon.eligibility === 'professionals' ? 'Professionals Only' :
+              hackathon.eligibility
+            }</div>
           </div>
           <div>
             <div className="text-gray-300 mb-2"><b>Registration Deadline:</b> {formatDate(hackathon.registrationDeadline)}</div>

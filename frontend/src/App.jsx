@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import Layout from './layouts/Layout';
 import AdminLogin from './pages/AdminLogin';
+import UpcomingEvents from './pages/UpcomingEvents';
 import './index.css';
 
 // Protected Route Component
@@ -134,6 +135,13 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Profile />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/upcoming-events" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <UpcomingEvents />
                   </Layout>
                 </ProtectedRoute>
               } />

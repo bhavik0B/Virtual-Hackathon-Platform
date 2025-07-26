@@ -237,7 +237,7 @@ const Dashboard = () => {
           <Card className="p-6 w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Upcoming Events</h2>
-              <Link className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center group">
+              <Link to="/upcoming-events" className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center group">
                 View All
                 <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
@@ -246,6 +246,7 @@ const Dashboard = () => {
               {hackathons
                 .filter(h => h.status === 'upcoming' || h.status === 'active')
                 .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+                .slice(0, 3) // Show only first 3 hackathons
                 .map((hackathon) => (
                   <div key={hackathon._id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
                     <div className="flex-1">
@@ -261,13 +262,12 @@ const Dashboard = () => {
                       About Hackathon: {hackathon.description}
                       </div>
                       <div className="flex items-center text-sm text-gray-400 mt-1">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {new Date(hackathon.startDate).toLocaleDateString()} - {new Date(hackathon.endDate).toLocaleDateString()}
+                        {formatDate(hackathon.startDate)} - {formatDate(hackathon.endDate)}
                       </div>
                       <div className="flex items-center text-sm text-gray-400 mt-1">
                         <Users className="h-4 w-4 mr-1" />
-                        {/* Optionally show participants count if available */}
-                        {hackathon.participants ? hackathon.participants.length : 0} Teams
+                        {/* Optionally show teams count if available */}
+                        {hackathon.teams ? hackathon.teams.length : 0} Teams
                       </div>
                     </div>
                     <span className={`px-3 py-1 text-xs font-medium rounded border ${
@@ -338,7 +338,7 @@ const Dashboard = () => {
           transition={{ delay: 0.3 }}
           className="w-full"
         >
-          <Card className="p-6 w-full mt-10">
+          <Card className="p-6 w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
               <Activity className="h-5 w-5 text-gray-400" />
