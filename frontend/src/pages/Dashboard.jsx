@@ -286,7 +286,7 @@ const Dashboard = () => {
           <Card className="p-6 w-full mt-3">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Past Events</h2>
-              <Link className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center group">
+              <Link to="/past-events" className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center group">
                 View All
                 <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
@@ -295,6 +295,7 @@ const Dashboard = () => {
               {hackathons
                 .filter(h => h.status === 'completed')
                 .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+                .slice(0, 3) // Show only first 3 hackathons
                 .map((hackathon) => (
                   <div key={hackathon._id} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
                     <div className="flex-1">
