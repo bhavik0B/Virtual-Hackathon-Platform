@@ -140,7 +140,7 @@ const JoinHackathon = () => {
       await api.post('/hackathons/register', registrationData);
       
       success(`Successfully registered for ${hackathonData.name}!`);
-      navigate('/hackathon-info', { state: { hackathon: hackathonData } });
+      navigate('/dashboard');
     } catch (err) {
       console.error('Registration error:', err);
       console.error('Error response:', err.response?.data);

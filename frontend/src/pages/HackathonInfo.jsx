@@ -112,7 +112,6 @@ const HackathonInfo = () => {
             loading={isCheckingRegistration}
           >
             {isCheckingRegistration ? 'Checking...' : 
-             hackathon.status === 'completed' ? 'Completed' :
              isAlreadyRegistered ? 'Already Registered' : 'Join Hackathon'}
           </Button>
         </div>

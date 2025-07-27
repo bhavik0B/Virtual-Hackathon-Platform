@@ -19,6 +19,7 @@ import AdminLogin from './pages/AdminLogin';
 import UpcomingEvents from './pages/UpcomingEvents';
 import PastEvents from './pages/PastEvents';
 import './index.css';
+import PastEvents from './pages/PastEvents';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
