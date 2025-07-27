@@ -398,11 +398,14 @@ const JoinHackathon = () => {
 
   // Team Preference Step (now step 4)
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+  const [showJoinTeamModal, setShowJoinTeamModal] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
   const [maxMembers, setMaxMembers] = useState(5);
   const [skills, setSkills] = useState('');
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [teamCode, setTeamCode] = useState('');
+  const [isJoiningTeam, setIsJoiningTeam] = useState(false);
 
   const handleCreateTeam = async () => {
     if (!teamName.trim()) {
@@ -418,23 +421,63 @@ const JoinHackathon = () => {
         skills: skills.split(',').map(s => s.trim()).filter(Boolean),
       });
       
-      success(`Team "${teamName}" created successfully!`);
+      // Fetch complete team details including all members
+      const teamDetailsRes = await api.get(`/teams/${res.data.team._id}`);
+      const completeTeamData = teamDetailsRes.data.team;
+      
+      success(`Team "${completeTeamData.name}" created successfully!`);
       setShowCreateTeamModal(false);
       setTeamName('');
       setTeamDescription('');
       setMaxMembers(5);
       setSkills('');
       handleInputChange('teamPreference', 'individual');
-      setCreatedTeam(res.data.team || {
-        name: teamName.trim(),
-        description: teamDescription.trim(),
-        maxMembers,
-        skills: skills.split(',').map(s => s.trim()).filter(Boolean),
-      });
+      setCreatedTeam(completeTeamData);
     } catch (e) {
       error(e.response?.data?.message || 'Failed to create team');
     } finally {
       setIsCreatingTeam(false);
+    }
+  };
+
+  const handleJoinTeam = async () => {
+    if (!teamCode.trim()) {
+      error('Team code is required');
+      return;
+    }
+    setIsJoiningTeam(true);
+    try {
+      console.log('Attempting to join team with code:', teamCode.trim());
+      
+      const res = await api.post('/teams/join', {
+        inviteCode: teamCode.trim()
+      });
+      
+      console.log('Join team response:', res.data);
+      
+      if (!res.data.team || !res.data.team._id) {
+        throw new Error('Invalid team data received from server');
+      }
+      
+      // Fetch complete team details including all members
+      console.log('Fetching complete team details for:', res.data.team._id);
+      const teamDetailsRes = await api.get(`/teams/${res.data.team._id}`);
+      const completeTeamData = teamDetailsRes.data.team;
+      
+      console.log('Complete team data:', completeTeamData);
+      
+      success(`Successfully joined team "${completeTeamData.name}"!`);
+      setShowJoinTeamModal(false);
+      setTeamCode('');
+      handleInputChange('teamPreference', 'team');
+      setCreatedTeam(completeTeamData);
+    } catch (e) {
+      console.error('Join team error:', e);
+      console.error('Error response:', e.response?.data);
+      console.error('Error status:', e.response?.status);
+      error(e.response?.data?.message || 'Failed to join team. Please check the team code.');
+    } finally {
+      setIsJoiningTeam(false);
     }
   };
 
@@ -455,7 +498,7 @@ const JoinHackathon = () => {
               if (option.value === 'individual') {
                 setShowCreateTeamModal(true);
               } else {
-                handleInputChange('teamPreference', option.value);
+                setShowJoinTeamModal(true);
               }
             }}
             className={`p-4 rounded-lg border text-left transition-colors ${formData.teamPreference === option.value
@@ -522,6 +565,41 @@ const JoinHackathon = () => {
           </div>
         </div>
       )}
+      {/* Join Team Modal */}
+      {showJoinTeamModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-slate-800 rounded-lg p-8 w-full max-w-md shadow-lg relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-white"
+              onClick={() => setShowJoinTeamModal(false)}
+            >
+              &times;
+            </button>
+            <h3 className="text-xl font-bold text-white mb-4">Join Existing Team</h3>
+            <form onSubmit={e => { e.preventDefault(); handleJoinTeam(); }}>
+              <InputField
+                label="Team Code"
+                type="text"
+                placeholder="Enter the team invite code"
+                value={teamCode}
+                onChange={e => setTeamCode(e.target.value)}
+                required
+              />
+              <p className="text-sm text-gray-400 mt-2 mb-4">
+                Ask your team leader for the invite code to join their team.
+              </p>
+              <div className="flex justify-end mt-6">
+                <Button type="button" variant="outline" onClick={() => setShowJoinTeamModal(false)} className="mr-2">
+                  Cancel
+                </Button>
+                <Button type="submit" loading={isJoiningTeam}>
+                  {isJoiningTeam ? 'Joining...' : 'Join Team'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* Show created team info below navigation */}
       {createdTeam && (
         <div className="mt-8">
@@ -535,22 +613,34 @@ const JoinHackathon = () => {
                 {createdTeam.status || 'Active'}
               </span>
             </div>
-            {/* Members (just the creator for now) */}
+            {/* Members */}
             <div className="mb-4 flex-1">
-              <h4 className="text-sm font-medium text-white mb-3">Members (1)</h4>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3 min-w-0 flex-1">
-                  <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-medium text-white">{user?.name ? user.name.charAt(0) : 'U'}</span>
+              <h4 className="text-sm font-medium text-white mb-3">Members ({(createdTeam.members || []).length})</h4>
+              <div className="space-y-2">
+                {(createdTeam.members || []).map((member, memberIndex) => (
+                  <div key={memberIndex} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-medium text-white">
+                          {member.name ? member.name.charAt(0) : member.email ? member.email.charAt(0) : 'U'}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white truncate">
+                          {member.name || member.email || 'Unknown Member'}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {member.email || ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <span className="text-xs text-gray-400">
+                        {memberIndex === 0 ? 'Leader' : 'Member'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">{user?.name || 'You'}</p>
-                    <p className="text-xs text-gray-400 truncate">{user?.email || ''}</p>
-                  </div>
-                  <div className="flex items-center space-x-1 flex-shrink-0">
-                    <span className="text-xs text-gray-400">Leader</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
             {/* Skills */}
@@ -633,10 +723,6 @@ const JoinHackathon = () => {
               <span className="text-gray-400">Phone:</span>
               <span className="text-white ml-2">{formData.phone}</span>
             </div>
-            <div>
-              <span className="text-gray-400">Team Preference:</span>
-              <span className="text-white ml-2 capitalize">{formData.teamPreference === 'individual' ? 'Create Team' : 'Join Team'}</span>
-            </div>
           </div>
         </Card>
         {(hackathonData.eligibility === 'students') && formData.institution && (
@@ -697,22 +783,34 @@ const JoinHackathon = () => {
                 {createdTeam.status || 'Active'}
               </span>
             </div>
-            {/* Members (just the creator for now) */}
+            {/* Members */}
             <div className="mb-4 flex-1">
-              <h4 className="text-sm font-medium text-white mb-3">Members (1)</h4>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3 min-w-0 flex-1">
-                  <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-medium text-white">{user?.name ? user.name.charAt(0) : 'U'}</span>
+              <h4 className="text-sm font-medium text-white mb-3">Members ({(createdTeam.members || []).length})</h4>
+              <div className="space-y-2">
+                {(createdTeam.members || []).map((member, memberIndex) => (
+                  <div key={memberIndex} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-medium text-white">
+                          {member.name ? member.name.charAt(0) : member.email ? member.email.charAt(0) : 'U'}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white truncate">
+                          {member.name || member.email || 'Unknown Member'}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {member.email || ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <span className="text-xs text-gray-400">
+                        {memberIndex === 0 ? 'Leader' : 'Member'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">{user?.name || 'You'}</p>
-                    <p className="text-xs text-gray-400 truncate">{user?.email || ''}</p>
-                  </div>
-                  <div className="flex items-center space-x-1 flex-shrink-0">
-                    <span className="text-xs text-gray-400">Leader</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
             {/* Skills */}

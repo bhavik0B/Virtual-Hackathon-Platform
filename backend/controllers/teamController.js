@@ -101,6 +101,23 @@ async function getAllTeams(req, res) {
   }
 }
 
+// Get single team by ID
+async function getTeamById(req, res) {
+  try {
+    const { id } = req.params;
+    const team = await Team.findById(id).populate('members', 'name email avatar');
+    
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+    
+    res.json({ team });
+  } catch (err) {
+    console.error('Get team by ID error:', err);
+    res.status(500).json({ message: 'Failed to fetch team', error: err.message });
+  }
+}
+
 // Search teams by invite code
 async function searchTeamsByInviteCode(req, res) {
   try {
@@ -132,4 +149,4 @@ async function searchTeamsByInviteCode(req, res) {
   }
 }
 
-module.exports = { createTeam, joinTeam, getTeamMembers, getAllTeams, searchTeamsByInviteCode }; 
+module.exports = { createTeam, joinTeam, getTeamMembers, getAllTeams, searchTeamsByInviteCode, getTeamById }; 
