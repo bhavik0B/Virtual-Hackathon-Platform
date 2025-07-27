@@ -108,10 +108,11 @@ const HackathonInfo = () => {
           </Button>
           <Button 
             onClick={handleJoinHackathon}
-            disabled={isCheckingRegistration || isAlreadyRegistered}
+            disabled={isCheckingRegistration || isAlreadyRegistered || hackathon.status === 'completed'}
             loading={isCheckingRegistration}
           >
             {isCheckingRegistration ? 'Checking...' : 
+             hackathon.status === 'completed' ? 'Completed' :
              isAlreadyRegistered ? 'Already Registered' : 'Join Hackathon'}
           </Button>
         </div>
