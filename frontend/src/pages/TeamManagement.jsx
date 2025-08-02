@@ -10,7 +10,11 @@ import {
   Settings,
   Copy,
   Check,
-  Video
+  Video,
+  Trash2,
+  Trophy,
+  Calendar,
+  Eye
 } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -22,16 +26,17 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/axiosConfig';
 
 // Helper to normalize backend team.members to frontend format
-function normalizeMembers(members) {
+function normalizeMembers(members, createdBy) {
   return members.map((member) => {
     // member can be a populated user object or just an id
     const user = typeof member === 'object' ? member : { _id: member };
+    const memberId = user._id || user.id || member;
     return {
-      id: user._id || user.id || member || Math.random(),
+      id: memberId || Math.random(),
       name: user.name || user.firstName || 'Unknown',
       email: user.email || '',
       avatar: user.avatar || (user.name ? user.name.charAt(0) : 'U'),
-      role: 'Member', // All members have the same role for now
+      role: memberId === createdBy ? 'Leader' : 'Member', // Set role based on creator
     };
   });
 }
@@ -42,6 +47,9 @@ const TeamManagement = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showTeamDetailsModal, setShowTeamDetailsModal] = useState(false);
+  const [showTeamSettingsModal, setShowTeamSettingsModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
@@ -52,6 +60,8 @@ const TeamManagement = () => {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [copied, setCopied] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const { success, error } = useToast();
 
   // State for managing teams
@@ -181,7 +191,51 @@ const TeamManagement = () => {
     }
   };
 
+  // Delete a team (only for team creator)
+  const handleDeleteTeam = async () => {
+    if (!selectedTeam) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.delete(`/teams/${selectedTeam._id}`);
+      
+      // Refresh the teams list
+      await refreshTeamsList();
+      
+      success(`Team "${selectedTeam.name}" deleted successfully!`);
+      setShowDeleteConfirmModal(false);
+      setShowTeamSettingsModal(false);
+      setSelectedTeam(null);
+    } catch (e) {
+      error(e.response?.data?.message || 'Failed to delete team');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
+  // Leave a team (for all team members)
+  const handleLeaveTeam = async () => {
+    if (!selectedTeam) return;
+    
+    setIsLeaving(true);
+    try {
+      const response = await api.post(`/teams/${selectedTeam._id}/leave`);
+      
+      // Refresh the teams list
+      await refreshTeamsList();
+      
+      success(response.data.message || `Successfully left team "${selectedTeam.name}"!`);
+      setShowLeaveConfirmModal(false);
+      setShowTeamSettingsModal(false);
+      setSelectedTeam(null);
+    } catch (e) {
+      console.error('Leave team error:', e);
+      console.error('Error response:', e.response?.data);
+      error(e.response?.data?.message || 'Failed to leave team');
+    } finally {
+      setIsLeaving(false);
+    }
+  };
 
   // Join a team by teamId
   const handleJoinTeam = async (teamId) => {
@@ -284,7 +338,19 @@ const TeamManagement = () => {
     });
   };
 
+  // Enhanced smooth transitions for modal opening
+  const handleTeamSettings = (team) => {
+    setSelectedTeam(team);
+    // Add a small delay for smooth transition
+    setTimeout(() => {
+      setShowTeamSettingsModal(true);
+    }, 50);
+  };
 
+  // Check if user is the creator of a team
+  const isTeamCreator = (team) => {
+    return team.createdBy === user?._id;
+  };
 
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
@@ -301,13 +367,31 @@ const TeamManagement = () => {
 
   const handleCloseTeamDetailsModal = () => {
     setShowTeamDetailsModal(false);
-    setSelectedTeam(null);
+    // Add a small delay before clearing selected team for smooth transition
+    setTimeout(() => {
+      setSelectedTeam(null);
+    }, 200);
+  };
+
+  const handleCloseTeamSettingsModal = () => {
+    setShowTeamSettingsModal(false);
+    // Add a small delay before clearing selected team for smooth transition
+    setTimeout(() => {
+      setSelectedTeam(null);
+    }, 200);
+  };
+
+  const handleCloseLeaveConfirmModal = () => {
+    setShowLeaveConfirmModal(false);
   };
 
   // Add a new function to handle viewing team details
   const handleViewTeamDetails = (team) => {
     setSelectedTeam(team);
-    setShowTeamDetailsModal(true);
+    // Add a small delay for smooth transition
+    setTimeout(() => {
+      setShowTeamDetailsModal(true);
+    }, 50);
   };
 
   return (
@@ -341,93 +425,103 @@ const TeamManagement = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {myTeams.map((team, index) => (
-              <motion.div
-                key={team.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="p-6 h-full flex flex-col">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-white truncate">{team.name}</h3>
-                      <p className="text-gray-400 text-sm mt-1 line-clamp-2">{team.description}</p>
+            {myTeams.map((team, index) => {
+              // Normalize members with proper roles
+              const normalizedMembers = normalizeMembers(team.members || [], team.createdBy);
+              
+              return (
+                <motion.div
+                  key={team._id || team.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Card className="p-6 h-full flex flex-col hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 hover:-translate-y-1">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-semibold text-white truncate">{team.name}</h3>
+                        <p className="text-gray-400 text-sm mt-1 line-clamp-2">{team.description}</p>
+                      </div>
+                      <span className="px-3 py-1 text-xs font-medium bg-green-500/20 text-green-300 rounded-full border border-green-500/30 flex-shrink-0 ml-2">
+                        {team.status}
+                      </span>
                     </div>
-                    <span className="px-3 py-1 text-xs font-medium bg-green-500/20 text-green-300 rounded-full border border-green-500/30 flex-shrink-0 ml-2">
-                      {team.status}
-                    </span>
-                  </div>
 
-                  {/* Members */}
-                  <div className="mb-4 flex-1">
-                    <h4 className="text-sm font-medium text-white mb-3">
-                      Members ({team.members.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {team.members.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3 min-w-0 flex-1">
-                            <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-medium text-white">{member.avatar}</span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-white truncate">{member.name}</p>
-                              <p className="text-xs text-gray-400 truncate">{member.email}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-1 flex-shrink-0">
-                            {member.role === 'Leader' && <Crown className="h-4 w-4 text-yellow-500" />}
-                            <span className="text-xs text-gray-400">{member.role}</span>
-                          </div>
+                    {/* Members */}
+                    <div className="mb-4 flex-1">
+                      <h4 className="text-sm font-medium text-white mb-3">
+                        Members ({normalizedMembers.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {normalizedMembers.map((member) => (
+                          <div key={member.id} className="flex items-center justify-between">
+                                                  <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-110">
+                          <span className="text-xs font-medium text-white">{member.avatar}</span>
                         </div>
-                      ))}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-white truncate">{member.name}</p>
+                                <p className="text-xs text-gray-400 truncate">{member.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-1 flex-shrink-0">
+                              {member.role === 'Leader' && <Crown className="h-4 w-4 text-yellow-500" />}
+                              <span className="text-xs text-gray-400">{member.role}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-700">
-                    <div className="flex items-center space-x-2 min-w-0 flex-1">
-                      <code className="px-2 py-1 text-xs bg-slate-700 rounded font-mono text-gray-300 truncate">
-                        {team.inviteCode}
-                      </code>
-                      <button
-                        onClick={() => copyInviteCode(team.inviteCode)}
-                        className="p-1 hover:bg-slate-700 rounded transition-colors flex-shrink-0"
-                        title="Copy invite code"
-                      >
-                        {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-gray-400" />}
-                      </button>
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <code className="px-2 py-1 text-xs bg-slate-700 rounded font-mono text-gray-300 truncate">
+                          {team.inviteCode}
+                        </code>
+                        <button
+                          onClick={() => copyInviteCode(team.inviteCode)}
+                          className="p-1 hover:bg-slate-700 rounded transition-all duration-200 hover:scale-110 flex-shrink-0"
+                          title="Copy invite code"
+                        >
+                          {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-gray-400" />}
+                        </button>
+                      </div>
+                      <div className="flex space-x-2 flex-shrink-0 ml-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStartVideoCall(team)}
+                          className="hidden sm:flex"
+                        >
+                          <Video className="h-4 w-4 mr-1" />
+                          Video
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedTeam(team);
+                            setShowInviteModal(true);
+                          }}
+                        >
+                          <Mail className="h-4 w-4 mr-1" />
+                          Invite
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => handleTeamSettings(team)}
+                          className="hover:bg-slate-600/50 transition-all duration-200 hover:scale-105"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex space-x-2 flex-shrink-0 ml-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleStartVideoCall(team)}
-                        className="hidden sm:flex"
-                      >
-                        <Video className="h-4 w-4 mr-1" />
-                        Video
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedTeam(team);
-                          setShowInviteModal(true);
-                        }}
-                      >
-                        <Mail className="h-4 w-4 mr-1" />
-                        Invite
-                      </Button>
-                      <Button size="sm" variant="ghost">
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
+                  </Card>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -454,7 +548,7 @@ const TeamManagement = () => {
                   }, 500);
                   return () => clearTimeout(timeoutId);
                 }}
-              className="pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 w-full sm:w-64"
+              className="pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 w-full sm:w-64 transition-all duration-200 hover:border-slate-500"
             />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -493,12 +587,12 @@ const TeamManagement = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {(searchTerm ? searchResults : availableTeams).map((team, index) => (
             <motion.div
-              key={team.id}
+              key={team._id || team.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="p-6 h-full flex flex-col">
+              <Card className="p-6 h-full flex flex-col hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 hover:-translate-y-1">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-white truncate">{team.name}</h3>
@@ -533,20 +627,20 @@ const TeamManagement = () => {
 
                 {/* Actions */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-700">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleJoinTeam(team._id)}
-                    className="flex-1"
-                  >
-                    <User className="h-4 w-4 mr-1" />
-                    Join Team
-                  </Button>
+                                        <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleJoinTeam(team._id)}
+                        className="flex-1 hover:scale-105 transition-transform duration-200"
+                      >
+                        <User className="h-4 w-4 mr-1" />
+                        Join Team
+                      </Button>
                 <Button
                     size="sm"
                   variant="outline"
                     onClick={() => handleViewTeamDetails(team)}
-                    className="flex-1 ml-2"
+                    className="flex-1 ml-2 hover:scale-105 transition-transform duration-200"
                 >
                     <Settings className="h-4 w-4 mr-1" />
                     View Details
@@ -625,6 +719,297 @@ const TeamManagement = () => {
         team={selectedTeam}
       />
 
+      {/* Team Settings Modal */}
+      <Modal
+        isOpen={showTeamSettingsModal}
+        onClose={handleCloseTeamSettingsModal}
+        title="Team Settings"
+        size="lg"
+      >
+        {selectedTeam && (
+          <div className="space-y-6">
+            {/* Team Header */}
+            <div className="text-center pb-4 border-b border-slate-700">
+              <h2 className="text-2xl font-bold text-white mb-2">{selectedTeam.name}</h2>
+              <p className="text-gray-400">{selectedTeam.description}</p>
+              <div className="mt-3">
+                <span className={`px-3 py-1 text-sm font-medium rounded-full border ${
+                  selectedTeam.status === 'Active' 
+                    ? 'bg-green-500/20 text-green-300 border-green-500/30' 
+                    : 'bg-gray-500/20 text-gray-300 border-gray-500/30'
+                }`}>
+                  {selectedTeam.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Team Options */}
+            <div className="space-y-4">
+              {/* View Team Members */}
+              <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02]">
+                <div className="flex items-center space-x-3">
+                  <Eye className="h-5 w-5 text-blue-400" />
+                  <div>
+                    <h3 className="text-white font-medium">View Team Members</h3>
+                    <p className="text-gray-400 text-sm">See all team members and their roles</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowTeamSettingsModal(false);
+                    handleViewTeamDetails(selectedTeam);
+                  }}
+                  className="hover:scale-105 transition-transform duration-200"
+                >
+                  View
+                </Button>
+              </div>
+
+              {/* Invite Code */}
+              <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02]">
+                <div className="flex items-center space-x-3">
+                  <Copy className="h-5 w-5 text-green-400" />
+                  <div>
+                    <h3 className="text-white font-medium">Invite Code</h3>
+                    <p className="text-gray-400 text-sm">Share this code to invite new members</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <code className="px-3 py-1 text-sm bg-slate-600 rounded font-mono text-gray-300">
+                    {selectedTeam.inviteCode}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyInviteCode(selectedTeam.inviteCode)}
+                    className="hover:scale-105 transition-transform duration-200"
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              {/* Hackathons Joined */}
+              <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02]">
+                <div className="flex items-center space-x-3">
+                  <Trophy className="h-5 w-5 text-yellow-400" />
+                  <div>
+                    <h3 className="text-white font-medium">Hackathons Joined</h3>
+                    <p className="text-gray-400 text-sm">View hackathons this team has participated in</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // TODO: Implement hackathons view
+                    success('Hackathons feature coming soon!');
+                  }}
+                  className="hover:scale-105 transition-transform duration-200"
+                >
+                  View
+                </Button>
+              </div>
+
+              {/* Leave Team */}
+              <div className="flex items-center justify-between p-4 bg-orange-500/10 rounded-lg border border-orange-500/20 hover:bg-orange-500/20 transition-all duration-200 hover:scale-[1.02]">
+                <div className="flex items-center space-x-3">
+                  <User className="h-5 w-5 text-orange-400" />
+                  <div>
+                    <h3 className="text-white font-medium">Leave Team</h3>
+                    <p className="text-gray-400 text-sm">Leave this team and remove yourself as a member</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:scale-105 transition-transform duration-200"
+                  onClick={() => {
+                    setShowTeamSettingsModal(false);
+                    setShowLeaveConfirmModal(true);
+                  }}
+                >
+                  Leave
+                </Button>
+              </div>
+
+              {/* Team Creator Options */}
+              {isTeamCreator(selectedTeam) && (
+                <>
+                  {/* Edit Team */}
+                  <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02]">
+                    <div className="flex items-center space-x-3">
+                      <Settings className="h-5 w-5 text-purple-400" />
+                      <div>
+                        <h3 className="text-white font-medium">Edit Team</h3>
+                        <p className="text-gray-400 text-sm">Modify team details and settings</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // TODO: Implement edit team functionality
+                        success('Edit team feature coming soon!');
+                      }}
+                      className="hover:scale-105 transition-transform duration-200"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+
+                  {/* Delete Team */}
+                  <div className="flex items-center justify-between p-4 bg-red-500/10 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-all duration-200 hover:scale-[1.02]">
+                    <div className="flex items-center space-x-3">
+                      <Trash2 className="h-5 w-5 text-red-400" />
+                      <div>
+                        <h3 className="text-white font-medium">Delete Team</h3>
+                        <p className="text-gray-400 text-sm">Permanently delete this team and all its data</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-500/30 text-red-400 hover:bg-red-500/20 hover:scale-105 transition-transform duration-200"
+                      onClick={() => {
+                        setShowTeamSettingsModal(false);
+                        setShowDeleteConfirmModal(true);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirmModal}
+        onClose={() => setShowDeleteConfirmModal(false)}
+        title="Delete Team"
+        size="md"
+      >
+        {selectedTeam && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ duration: 0.5, type: "spring" }}
+              >
+                <Trash2 className="h-16 w-16 text-red-400 mx-auto mb-4" />
+              </motion.div>
+              <motion.h3 
+                className="text-xl font-bold text-white mb-2"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                Delete "{selectedTeam.name}"?
+              </motion.h3>
+              <motion.p 
+                className="text-gray-400"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                This action cannot be undone. All team data, members, and associated information will be permanently deleted.
+              </motion.p>
+            </div>
+            
+            <motion.div 
+              className="flex justify-end space-x-3"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="hover:scale-105 transition-transform duration-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="border-red-500/30 text-red-400 hover:bg-red-500/20 hover:scale-105 transition-transform duration-200"
+                onClick={handleDeleteTeam}
+                loading={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Team'}
+              </Button>
+            </motion.div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Leave Team Confirmation Modal */}
+      <Modal
+        isOpen={showLeaveConfirmModal}
+        onClose={handleCloseLeaveConfirmModal}
+        title="Leave Team"
+        size="md"
+      >
+        {selectedTeam && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ duration: 0.5, type: "spring" }}
+              >
+                <User className="h-16 w-16 text-orange-400 mx-auto mb-4" />
+              </motion.div>
+              <motion.h3 
+                className="text-xl font-bold text-white mb-2"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                Leave "{selectedTeam.name}"?
+              </motion.h3>
+              <motion.p 
+                className="text-gray-400"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                You will be removed from this team. You can rejoin later if you have the invite code.
+              </motion.p>
+            </div>
+            
+            <motion.div 
+              className="flex justify-end space-x-3"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Button
+                variant="outline"
+                onClick={handleCloseLeaveConfirmModal}
+                className="hover:scale-105 transition-transform duration-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:scale-105 transition-transform duration-200"
+                onClick={handleLeaveTeam}
+                loading={isLeaving}
+              >
+                {isLeaving ? 'Leaving...' : 'Leave Team'}
+              </Button>
+            </motion.div>
+          </div>
+        )}
+      </Modal>
+
       {/* Team Details Modal */}
       <Modal
         isOpen={showTeamDetailsModal}
@@ -690,11 +1075,11 @@ const TeamManagement = () => {
               <h3 className="text-lg font-semibold text-white mb-3">Team Members</h3>
               <div className="space-y-3">
                 {selectedTeam.members.length > 0 ? (
-                  selectedTeam.members.map((member, index) => (
-                    <div key={member.id || index} className="flex items-center space-x-3 p-3 bg-slate-700/30 rounded-lg">
-                      <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-medium text-white">{member.avatar}</span>
-                      </div>
+                  normalizeMembers(selectedTeam.members, selectedTeam.createdBy).map((member, index) => (
+                    <div key={member.id || index} className="flex items-center space-x-3 p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02]">
+                                              <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-110">
+                          <span className="text-sm font-medium text-white">{member.avatar}</span>
+                        </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{member.name}</p>
                         <p className="text-xs text-gray-400 truncate">{member.email}</p>

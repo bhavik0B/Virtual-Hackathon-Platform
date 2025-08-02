@@ -111,14 +111,19 @@ const HackathonInfo = () => {
             disabled={isCheckingRegistration || isAlreadyRegistered || hackathon.status === 'completed'}
             loading={isCheckingRegistration}
           >
-            {isCheckingRegistration ? 'Checking...' : 
-             isAlreadyRegistered ? 'Already Registered' : 'Join Hackathon'}
+            {isCheckingRegistration
+              ? 'Checking...'
+              : hackathon.status === 'completed'
+              ? 'Completed'
+              : isAlreadyRegistered
+              ? 'Already Registered'
+              : 'Join Hackathon'}
           </Button>
         </div>
       </div>
 
       {/* Registration Status Alert */}
-      {isAlreadyRegistered && (
+      {isAlreadyRegistered && hackathon.status !== 'completed' && (
         <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
           <div className="flex items-center space-x-2">
             <CheckCircle className="h-5 w-5 text-blue-400" />
