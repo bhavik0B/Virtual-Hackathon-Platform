@@ -481,12 +481,15 @@ const JoinHackathon = () => {
     }
   };
 
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-white mb-2">Team Setup</h2>
-        <p className="text-gray-400">Choose how you want to participate in a team</p>
-      </div>
+const renderStep4 = () => (
+  <div className="space-y-6">
+    <div className="text-center">
+      <h2 className="text-2xl font-bold text-white mb-2">Team Setup</h2>
+      <p className="text-gray-400">Choose how you want to participate in a team</p>
+    </div>
+    
+    {/* Only show team setup buttons if no team has been created/joined */}
+    {!createdTeam && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {[
           { value: 'individual', label: 'Create Team', desc: 'Start a new team as leader' },
@@ -511,182 +514,202 @@ const JoinHackathon = () => {
           </button>
         ))}
       </div>
-      {/* Create Team Modal */}
-      {showCreateTeamModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-slate-800 rounded-lg p-8 w-full max-w-md shadow-lg relative">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-white"
-              onClick={() => setShowCreateTeamModal(false)}
-            >
-              &times;
-            </button>
-            <h3 className="text-xl font-bold text-white mb-4">Create New Team</h3>
-            <form onSubmit={e => { e.preventDefault(); handleCreateTeam(); }}>
-              <InputField
-                label="Team Name"
-                type="text"
-                value={teamName}
-                onChange={e => setTeamName(e.target.value)}
-                required
-              />
-              <InputField
-                label="Team Description"
-                type="text"
-                value={teamDescription}
-                onChange={e => setTeamDescription(e.target.value)}
-                required
-              />
-              <InputField
-                label="Max Members"
-                type="number"
-                value={maxMembers}
-                onChange={e => setMaxMembers(parseInt(e.target.value) || 5)}
-                min="1"
-                max="10"
-                required
-              />
-              <InputField
-                label="Skills (comma-separated)"
-                type="text"
-                value={skills}
-                onChange={e => setSkills(e.target.value)}
-                placeholder="e.g., React, Node.js, MongoDB"
-              />
-              <div className="flex justify-end mt-6">
-                <Button type="button" variant="outline" onClick={() => setShowCreateTeamModal(false)} className="mr-2">
-                  Cancel
-                </Button>
-                <Button type="submit" loading={isCreatingTeam}>
-                  {isCreatingTeam ? 'Creating...' : 'Create Team'}
-                </Button>
-              </div>
-            </form>
-          </div>
+    )}
+
+    {/* Create Team Modal */}
+    {showCreateTeamModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-slate-800 rounded-lg p-8 w-full max-w-md shadow-lg relative">
+          <button
+            className="absolute top-2 right-2 text-gray-400 hover:text-white"
+            onClick={() => setShowCreateTeamModal(false)}
+          >
+            &times;
+          </button>
+          <h3 className="text-xl font-bold text-white mb-4">Create New Team</h3>
+          <form onSubmit={e => { e.preventDefault(); handleCreateTeam(); }}>
+            <InputField
+              label="Team Name"
+              type="text"
+              value={teamName}
+              onChange={e => setTeamName(e.target.value)}
+              required
+            />
+            <InputField
+              label="Team Description"
+              type="text"
+              value={teamDescription}
+              onChange={e => setTeamDescription(e.target.value)}
+              required
+            />
+            <InputField
+              label="Max Members"
+              type="number"
+              value={maxMembers}
+              onChange={e => setMaxMembers(parseInt(e.target.value) || 5)}
+              min="1"
+              max="10"
+              required
+            />
+            <InputField
+              label="Skills (comma-separated)"
+              type="text"
+              value={skills}
+              onChange={e => setSkills(e.target.value)}
+              placeholder="e.g., React, Node.js, MongoDB"
+            />
+            <div className="flex justify-end mt-6">
+              <Button type="button" variant="outline" onClick={() => setShowCreateTeamModal(false)} className="mr-2">
+                Cancel
+              </Button>
+              <Button type="submit" loading={isCreatingTeam}>
+                {isCreatingTeam ? 'Creating...' : 'Create Team'}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
-      {/* Join Team Modal */}
-      {showJoinTeamModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-slate-800 rounded-lg p-8 w-full max-w-md shadow-lg relative">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-white"
-              onClick={() => setShowJoinTeamModal(false)}
-            >
-              &times;
-            </button>
-            <h3 className="text-xl font-bold text-white mb-4">Join Existing Team</h3>
-            <form onSubmit={e => { e.preventDefault(); handleJoinTeam(); }}>
-              <InputField
-                label="Team Code"
-                type="text"
-                placeholder="Enter the team invite code"
-                value={teamCode}
-                onChange={e => setTeamCode(e.target.value)}
-                required
-              />
-              <p className="text-sm text-gray-400 mt-2 mb-4">
-                Ask your team leader for the invite code to join their team.
-              </p>
-              <div className="flex justify-end mt-6">
-                <Button type="button" variant="outline" onClick={() => setShowJoinTeamModal(false)} className="mr-2">
-                  Cancel
-                </Button>
-                <Button type="submit" loading={isJoiningTeam}>
-                  {isJoiningTeam ? 'Joining...' : 'Join Team'}
-                </Button>
-              </div>
-            </form>
-          </div>
+      </div>
+    )}
+
+    {/* Join Team Modal */}
+    {showJoinTeamModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-slate-800 rounded-lg p-8 w-full max-w-md shadow-lg relative">
+          <button
+            className="absolute top-2 right-2 text-gray-400 hover:text-white"
+            onClick={() => setShowJoinTeamModal(false)}
+          >
+            &times;
+          </button>
+          <h3 className="text-xl font-bold text-white mb-4">Join Existing Team</h3>
+          <form onSubmit={e => { e.preventDefault(); handleJoinTeam(); }}>
+            <InputField
+              label="Team Code"
+              type="text"
+              placeholder="Enter the team invite code"
+              value={teamCode}
+              onChange={e => setTeamCode(e.target.value)}
+              required
+            />
+            <p className="text-sm text-gray-400 mt-2 mb-4">
+              Ask your team leader for the invite code to join their team.
+            </p>
+            <div className="flex justify-end mt-6">
+              <Button type="button" variant="outline" onClick={() => setShowJoinTeamModal(false)} className="mr-2">
+                Cancel
+              </Button>
+              <Button type="submit" loading={isJoiningTeam}>
+                {isJoiningTeam ? 'Joining...' : 'Join Team'}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
-      {/* Show created team info below navigation */}
-      {createdTeam && (
-        <div className="mt-8">
-          <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-blue-500/30">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-white truncate">{createdTeam.name}</h3>
-                <p className="text-gray-400 text-sm mt-1 line-clamp-2">{createdTeam.description}</p>
-              </div>
-              <span className="px-3 py-1 text-xs font-medium bg-green-500/20 text-green-300 rounded-full border border-green-500/30 flex-shrink-0 ml-2">
+      </div>
+    )}
+
+    {/* Show team info when team has been created or joined */}
+    {createdTeam && (
+      <div className="mt-8">
+        <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-blue-500/30">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-white truncate">{createdTeam.name}</h3>
+              <p className="text-gray-400 text-sm mt-1 line-clamp-2">{createdTeam.description}</p>
+            </div>
+            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+              <span className="px-3 py-1 text-xs font-medium bg-green-500/20 text-green-300 rounded-full border border-green-500/30">
                 {createdTeam.status || 'Active'}
               </span>
+              {/* Add option to leave/change team */}
+              <button
+                onClick={() => {
+                  setCreatedTeam(null);
+                  handleInputChange('teamPreference', '');
+                }}
+                className="px-2 py-1 text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-gray-400 rounded transition-colors"
+                title="Change team"
+              >
+                Change
+              </button>
             </div>
-            {/* Members */}
-            <div className="mb-4 flex-1">
-              <h4 className="text-sm font-medium text-white mb-3">Members ({(createdTeam.members || []).length})</h4>
-              <div className="space-y-2">
-                {(createdTeam.members || []).map((member, memberIndex) => (
-                  <div key={memberIndex} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-medium text-white">
-                          {member.name ? member.name.charAt(0) : member.email ? member.email.charAt(0) : 'U'}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-white truncate">
-                          {member.name || member.email || 'Unknown Member'}
-                        </p>
-                        <p className="text-xs text-gray-400 truncate">
-                          {member.email || ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-1 flex-shrink-0">
-                      <span className="text-xs text-gray-400">
-                        {memberIndex === 0 ? 'Leader' : 'Member'}
+          </div>
+          
+          {/* Members */}
+          <div className="mb-4 flex-1">
+            <h4 className="text-sm font-medium text-white mb-3">Members ({(createdTeam.members || []).length})</h4>
+            <div className="space-y-2">
+              {(createdTeam.members || []).map((member, memberIndex) => (
+                <div key={memberIndex} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
+                    <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-medium text-white">
+                        {member.name ? member.name.charAt(0) : member.email ? member.email.charAt(0) : 'U'}
                       </span>
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-white truncate">
+                        {member.name || member.email || 'Unknown Member'}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {member.email || ''}
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
-            {/* Skills */}
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-white mb-3">Skills</h4>
-              <div className="flex flex-wrap items-center gap-2">
-                {(createdTeam.skills || []).length > 0 ? (
-                  createdTeam.skills.map((skill, skillIndex) => (
-                    <span key={skillIndex} className="px-3 py-1 text-xs font-medium bg-slate-600 text-gray-300 rounded-full">
-                      {skill}
+                  <div className="flex items-center space-x-1 flex-shrink-0">
+                    <span className="text-xs text-gray-400">
+                      {memberIndex === 0 ? 'Leader' : 'Member'}
                     </span>
-                  ))
-                ) : (
-                  <span className="text-gray-400 italic">No specific skills required</span>
-                )}
-              </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            {/* Invite Code */}
-            {createdTeam.inviteCode && (
-              <div className="flex items-center space-x-2 min-w-0 flex-1 mt-2">
-                <code className="px-2 py-1 text-xs bg-slate-700 rounded font-mono text-gray-300 truncate">
-                  {createdTeam.inviteCode}
-                </code>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(createdTeam.inviteCode);
-                    setCopiedInvite(true);
-                    setTimeout(() => setCopiedInvite(false), 1500);
-                  }}
-                  className="p-1 hover:bg-slate-700 rounded transition-colors"
-                  title="Copy invite code"
-                >
-                  {copiedInvite ? (
-                    <span className="text-green-400 text-xs">Copied!</span>
-                  ) : (
-                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" /><rect x="3" y="3" width="13" height="13" rx="2" /></svg>
-                  )}
-                </button>
-                <span className="text-xs text-gray-400">Invite Code</span>
-              </div>
-            )}
           </div>
+          
+          {/* Skills */}
+          <div className="mb-4">
+            <h4 className="text-sm font-medium text-white mb-3">Skills</h4>
+            <div className="flex flex-wrap items-center gap-2">
+              {(createdTeam.skills || []).length > 0 ? (
+                createdTeam.skills.map((skill, skillIndex) => (
+                  <span key={skillIndex} className="px-3 py-1 text-xs font-medium bg-slate-600 text-gray-300 rounded-full">
+                    {skill}
+                  </span>
+                ))
+              ) : (
+                <span className="text-gray-400 italic">No specific skills required</span>
+              )}
+            </div>
+          </div>
+          
+          {/* Invite Code */}
+          {createdTeam.inviteCode && (
+            <div className="flex items-center space-x-2 min-w-0 flex-1 mt-2">
+              <code className="px-2 py-1 text-xs bg-slate-700 rounded font-mono text-gray-300 truncate">
+                {createdTeam.inviteCode}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(createdTeam.inviteCode);
+                  setCopiedInvite(true);
+                  setTimeout(() => setCopiedInvite(false), 1500);
+                }}
+                className="p-1 hover:bg-slate-700 rounded transition-colors"
+                title="Copy invite code"
+              >
+                {copiedInvite ? (
+                  <span className="text-green-400 text-xs">Copied!</span>
+                ) : (
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" /><rect x="3" y="3" width="13" height="13" rx="2" /></svg>
+                )}
+              </button>
+              <span className="text-xs text-gray-400">Invite Code</span>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 
   // Review Step (now step 5)
   const renderStep5 = () => {
