@@ -149,4 +149,52 @@ async function searchTeamsByInviteCode(req, res) {
   }
 }
 
-module.exports = { createTeam, joinTeam, getTeamMembers, getAllTeams, searchTeamsByInviteCode, getTeamById }; 
+// Leave a team
+async function leaveTeam(req, res) {
+  try {
+    const userId = req.user.id; // Get from middleware
+    const { id } = req.params; // Team ID from URL
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID required' });
+    }
+    
+    // Find the team
+    const team = await Team.findById(id);
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+    
+    // Check if user is a member of the team
+    if (!team.members.includes(userId)) {
+      return res.status(400).json({ message: 'You are not a member of this team' });
+    }
+    
+    // Check if user is the team creator
+    if (team.createdBy.toString() === userId) {
+      return res.status(400).json({ 
+        message: 'Team creator cannot leave the team. Please delete the team instead or transfer ownership first.' 
+      });
+    }
+    
+    // Remove user from team members
+    team.members = team.members.filter(memberId => memberId.toString() !== userId);
+    await team.save();
+    
+    // Decrement teamsJoined for the user
+    await User.findByIdAndUpdate(userId, { $inc: { teamsJoined: -1 } });
+    
+    // Populate members for response
+    await team.populate('members', 'name email avatar');
+    
+    res.json({ 
+      message: 'Successfully left the team', 
+      team 
+    });
+  } catch (err) {
+    console.error('Leave team error:', err);
+    res.status(500).json({ message: 'Failed to leave team', error: err.message });
+  }
+}
+
+module.exports = { createTeam, joinTeam, getTeamMembers, getAllTeams, searchTeamsByInviteCode, getTeamById, leaveTeam }; 

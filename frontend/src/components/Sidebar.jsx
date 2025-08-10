@@ -26,7 +26,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Teams', path: '/teams', icon: Users },
     { name: 'Editor', path: '/editor', icon: FolderOpen },
     { name: 'Submissions', path: '/submissions', icon: Send },
-    { name: 'Schedule', path: '/schedule', icon: Calendar },
     { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
     { name: 'Profile', path: '/profile', icon: User },
   ];
