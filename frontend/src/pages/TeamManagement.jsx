@@ -299,19 +299,28 @@ const TeamManagement = () => {
     }
   };
 
-  const handleInviteMember = () => {
+  const handleInviteMember = async () => {
     if (!inviteEmail.trim()) {
       error('Email is required');
       return;
     }
-    
-    // Simulate API call
-    setTimeout(() => {
-      success(`Invitation sent to ${inviteEmail}!`);
+    if (!selectedTeam?._id) {
+      error('Please select a team to invite to');
+      return;
+    }
+    try {
+      const res = await api.post(`/teams/${selectedTeam._id}/invite`, {
+        emails: inviteEmail,
+        message: `You have been invited to join team ${selectedTeam.name}.`,
+      });
+      success(res.data?.message || `Invitation sent to ${inviteEmail}!`);
       setShowInviteModal(false);
       setInviteEmail('');
       setSelectedTeam(null);
-    }, 1000);
+    } catch (e) {
+      console.error('Invite member error:', e);
+      error(e.response?.data?.message || 'Failed to send invitation');
+    }
   };
 
   const handleStartVideoCall = (team) => {
