@@ -21,7 +21,6 @@ import Modal from '../components/Modal';
 import { useToast } from '../contexts/ToastContext';
 
 const ProjectSubmission = () => {
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
@@ -61,31 +60,6 @@ const ProjectSubmission = () => {
     description: 'Build innovative AI solutions for everyday problems'
   };
 
-  const handleSubmitProject = () => {
-    if (!projectTitle.trim()) {
-      error('Project title is required');
-      return;
-    }
-    if (!projectDescription.trim()) {
-      error('Project description is required');
-      return;
-    }
-    if (!githubUrl.trim()) {
-      error('GitHub repository URL is required');
-      return;
-    }
-
-    // Simulate API call
-    setTimeout(() => {
-      success('Project submitted successfully!');
-      setShowSubmitModal(false);
-      setProjectTitle('');
-      setProjectDescription('');
-      setGithubUrl('');
-      setDemoUrl('');
-    }, 1000);
-  };
-
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -116,12 +90,6 @@ const ProjectSubmission = () => {
         <div>
           <h1 className="text-3xl font-bold text-white">Project Submissions</h1>
           <p className="mt-2 text-gray-400">Submit and manage your hackathon projects</p>
-        </div>
-        <div className="mt-4 sm:mt-0">
-          <Button onClick={() => setShowSubmitModal(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Submit Project
-          </Button>
         </div>
       </div>
 
@@ -283,78 +251,6 @@ const ProjectSubmission = () => {
         </div>
       </div>
 
-      {/* Submit Project Modal */}
-      <Modal
-        isOpen={showSubmitModal}
-        onClose={() => setShowSubmitModal(false)}
-        title="Submit Project"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <InputField
-            label="Project Title"
-            placeholder="Enter your project title"
-            value={projectTitle}
-            onChange={(e) => setProjectTitle(e.target.value)}
-            required
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Project Description <span className="text-red-400">*</span>
-            </label>
-            <textarea
-              placeholder="Describe your project, its features, and what makes it special"
-              value={projectDescription}
-              onChange={(e) => setProjectDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400"
-              rows={4}
-            />
-          </div>
-
-          <InputField
-            label="GitHub Repository URL"
-            placeholder="https://github.com/username/repository"
-            value={githubUrl}
-            onChange={(e) => setGithubUrl(e.target.value)}
-            required
-          />
-
-          <InputField
-            label="Live Demo URL (Optional)"
-            placeholder="https://your-project-demo.com"
-            value={demoUrl}
-            onChange={(e) => setDemoUrl(e.target.value)}
-          />
-
-          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
-            <div className="flex items-start">
-              <FileText className="h-5 w-5 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
-              <div>
-                <h4 className="text-sm font-medium text-blue-300 mb-1">
-                  Submission Guidelines
-                </h4>
-                <ul className="text-sm text-blue-300 space-y-1">
-                  <li>• Ensure your repository is public and includes a README</li>
-                  <li>• Include setup instructions and project dependencies</li>
-                  <li>• Add screenshots or demo videos if possible</li>
-                  <li>• Make sure your live demo is accessible</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 mt-6">
-            <Button variant="outline" onClick={() => setShowSubmitModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmitProject}>
-              <Send className="mr-2 h-4 w-4" />
-              Submit Project
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };
