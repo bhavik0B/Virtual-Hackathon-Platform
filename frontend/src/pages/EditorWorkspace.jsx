@@ -64,8 +64,15 @@ const EditorWorkspace = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editorTheme, setEditorTheme] = useState('vs-dark');
   const [fontSize, setFontSize] = useState(14);
+  const [showNewFileInput, setShowNewFileInput] = useState(false);
+  const [showNewFolderInput, setShowNewFolderInput] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState(null);
   const chatEndRef = useRef(null);
   const editorRef = useRef(null);
+  const newFileInputRef = useRef(null);
+  const newFolderInputRef = useRef(null);
   const { success } = useToast();
   const socketRef = useRef();
   const { user } = useAuth();
@@ -171,7 +178,7 @@ function App() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     setCount(prevCount => prevCount + 1);
-    setMessage(\Count updated to \${count + 1}!\);
+    setMessage(\`Count updated to \${count + 1}!\`);
     setIsLoading(false);
   };
 
@@ -516,7 +523,7 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className={\sidebar \${isCollapsed ? 'collapsed' : ''}\}>
+    <aside className={\`sidebar \${isCollapsed ? 'collapsed' : ''}\`}>
       <div className="sidebar-header">
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -569,7 +576,7 @@ A modern hackathon collaboration platform built with React and Vite.
 
 ### Installation
 
-\\\`bash
+\`\`\`bash
 # Clone the repository
 git clone https://github.com/your-username/hackcollab.git
 
@@ -581,26 +588,26 @@ npm install
 
 # Start development server
 npm run dev
-\\\`
+\`\`\`
 
 ### Available Scripts
 
-- \npm run dev\ - Start development server
-- \npm run build\ - Build for production
-- \npm run preview\ - Preview production build
-- \npm run lint\ - Run ESLint
+- \`npm run dev\` - Start development server
+- \`npm run build\` - Build for production
+- \`npm run preview\` - Preview production build
+- \`npm run lint\` - Run ESLint
 
 ## Tech Stack
 
-- *Frontend*: React 18, Vite
-- *Styling*: Tailwind CSS
-- *Icons*: Lucide React
-- *Animation*: Framer Motion
-- *Editor*: Monaco Editor
+- **Frontend**: React 18, Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Animation**: Framer Motion
+- **Editor**: Monaco Editor
 
 ## Project Structure
 
-\\\`
+\`\`\`
 src/
 ├── components/     # Reusable components
 ├── pages/         # Page components
@@ -608,14 +615,14 @@ src/
 ├── layouts/       # Layout components
 ├── utils/         # Utility functions
 └── assets/        # Static assets
-\\\`
+\`\`\`
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (\git checkout -b feature/amazing-feature\)
-3. Commit your changes (\git commit -m 'Add some amazing feature'\)
-4. Push to the branch (\git push origin feature/amazing-feature\)
+2. Create your feature branch (\`git checkout -b feature/amazing-feature\`)
+3. Commit your changes (\`git commit -m 'Add some amazing feature'\`)
+4. Push to the branch (\`git push origin feature/amazing-feature\`)
 5. Open a Pull Request
 
 ## License
@@ -850,6 +857,170 @@ This project is licensed under the MIT License.
     setFileTree(updateTree(fileTree));
   };
 
+  const selectFolder = (folderPath) => {
+    setSelectedFolder(folderPath);
+  };
+
+  const findFolderByPath = (items, path) => {
+    for (const item of items) {
+      if (item.name === path && item.type === 'folder') {
+        return item;
+      }
+      if (item.children) {
+        const found = findFolderByPath(item.children, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const createNestedPath = (items, pathParts, isFile) => {
+    if (pathParts.length === 0) return items;
+
+    const [current, ...rest] = pathParts;
+    const existingIndex = items.findIndex(item => item.name === current);
+
+    if (rest.length === 0) {
+      if (existingIndex === -1) {
+        const newItem = isFile
+          ? { name: current, type: 'file', hasErrors: false, language: getLanguageFromFile(current) }
+          : { name: current, type: 'folder', expanded: true, children: [] };
+        return [...items, newItem];
+      }
+      return items;
+    }
+
+    if (existingIndex === -1) {
+      const newFolder = {
+        name: current,
+        type: 'folder',
+        expanded: true,
+        children: createNestedPath([], rest, isFile)
+      };
+      return [...items, newFolder];
+    } else {
+      const updatedItems = [...items];
+      const existingItem = updatedItems[existingIndex];
+      if (existingItem.type === 'folder') {
+        updatedItems[existingIndex] = {
+          ...existingItem,
+          expanded: true,
+          children: createNestedPath(existingItem.children || [], rest, isFile)
+        };
+      }
+      return updatedItems;
+    }
+  };
+
+  const getLanguageFromFile = (fileName) => {
+    const ext = fileName.split('.').pop();
+    const langMap = {
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'javascript',
+      'tsx': 'javascript',
+      'css': 'css',
+      'html': 'html',
+      'json': 'json',
+      'md': 'markdown',
+      'txt': 'text'
+    };
+    return langMap[ext] || 'text';
+  };
+
+  const handleCreateFile = () => {
+    if (!newFileName.trim()) return;
+
+    const pathParts = newFileName.split('/');
+
+    if (selectedFolder) {
+      const folder = findFolderByPath(fileTree, selectedFolder);
+      if (folder) {
+        const updatedTree = fileTree.map(item => {
+          if (item.name === selectedFolder) {
+            return {
+              ...item,
+              children: createNestedPath(item.children || [], pathParts, true)
+            };
+          }
+          if (item.children) {
+            const updateInChildren = (children) => {
+              return children.map(child => {
+                if (child.name === selectedFolder) {
+                  return {
+                    ...child,
+                    children: createNestedPath(child.children || [], pathParts, true)
+                  };
+                }
+                if (child.children) {
+                  return { ...child, children: updateInChildren(child.children) };
+                }
+                return child;
+              });
+            };
+            return { ...item, children: updateInChildren(item.children) };
+          }
+          return item;
+        });
+        setFileTree(updatedTree);
+      }
+    } else {
+      setFileTree(createNestedPath(fileTree, pathParts, true));
+    }
+
+    const fullPath = pathParts.join('/');
+    openFile(fullPath, getLanguageFromFile(newFileName), false);
+
+    success(`File ${newFileName} created successfully!`);
+    setNewFileName('');
+    setShowNewFileInput(false);
+  };
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return;
+
+    const pathParts = newFolderName.split('/');
+
+    if (selectedFolder) {
+      const folder = findFolderByPath(fileTree, selectedFolder);
+      if (folder) {
+        const updatedTree = fileTree.map(item => {
+          if (item.name === selectedFolder) {
+            return {
+              ...item,
+              children: createNestedPath(item.children || [], pathParts, false)
+            };
+          }
+          if (item.children) {
+            const updateInChildren = (children) => {
+              return children.map(child => {
+                if (child.name === selectedFolder) {
+                  return {
+                    ...child,
+                    children: createNestedPath(child.children || [], pathParts, false)
+                  };
+                }
+                if (child.children) {
+                  return { ...child, children: updateInChildren(child.children) };
+                }
+                return child;
+              });
+            };
+            return { ...item, children: updateInChildren(item.children) };
+          }
+          return item;
+        });
+        setFileTree(updatedTree);
+      }
+    } else {
+      setFileTree(createNestedPath(fileTree, pathParts, false));
+    }
+
+    success(`Folder ${newFolderName} created successfully!`);
+    setNewFolderName('');
+    setShowNewFolderInput(false);
+  };
+
   const openFile = (fileName, language = 'javascript', hasErrors = false) => {
     const existingTab = openTabs.find(tab => tab.name === fileName);
     if (!existingTab) {
@@ -895,7 +1066,7 @@ export default ${fileName.replace('.jsx', '')};`;
   "version": "1.0.0"
 }`;
     }
-    return // ${fileName}\n\n;
+    return `// ${fileName}\n\n`;
   };
 
   const closeTab = (fileName) => {
@@ -963,11 +1134,20 @@ export default ${fileName.replace('.jsx', '')};`;
   const renderFileTree = (items, level = 0) => {
     return items.map((item, index) => (
       <div key={index} style={{ paddingLeft: `${level * 12}px` }}>
-        <div 
+        <div
           className={`flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-[#2a2d3a] transition-colors ${
-            item.active ? 'bg-[#37373d] text-white' : 'text-[#cccccc]'
+            item.active || (item.type === 'folder' && selectedFolder === item.name)
+              ? 'bg-[#37373d] text-white'
+              : 'text-[#cccccc]'
           }`}
-          onClick={() => item.type === 'folder' ? toggleFolder(item.name) : openFile(item.name, item.language, item.hasErrors)}
+          onClick={() => {
+            if (item.type === 'folder') {
+              toggleFolder(item.name);
+              selectFolder(item.name);
+            } else {
+              openFile(item.name, item.language, item.hasErrors);
+            }
+          }}
         >
           {item.type === 'folder' && (
             <div className="mr-1">
@@ -975,8 +1155,8 @@ export default ${fileName.replace('.jsx', '')};`;
             </div>
           )}
           {item.type === 'folder' ? (
-            item.expanded ? 
-              <FolderOpen className="h-4 w-4 mr-2 text-[#dcb67a]" /> : 
+            item.expanded ?
+              <FolderOpen className="h-4 w-4 mr-2 text-[#dcb67a]" /> :
               <Folder className="h-4 w-4 mr-2 text-[#dcb67a]" />
           ) : (
             <div className="flex items-center">
@@ -1102,18 +1282,134 @@ export default ${fileName.replace('.jsx', '')};`;
                     <div className="h-8 bg-[#2d2d30] border-b border-[#2d2d30] flex items-center px-3 text-xs font-medium text-[#cccccc]">
                       <span>EXPLORER</span>
                       <div className="ml-auto flex space-x-1">
-                        <button className="p-1 hover:bg-[#2a2d3a] rounded">
-                          <Plus className="h-3 w-3" />
+                        <button
+                          onClick={() => {
+                            setShowNewFileInput(true);
+                            setShowNewFolderInput(false);
+                            setTimeout(() => newFileInputRef.current?.focus(), 100);
+                          }}
+                          className="p-1 hover:bg-[#2a2d3a] rounded transition-colors"
+                          title="New File"
+                        >
+                          <FileText className="h-3 w-3" />
                         </button>
-                        <button className="p-1 hover:bg-[#2a2d3a] rounded">
-                          <Search className="h-3 w-3" />
+                        <button
+                          onClick={() => {
+                            setShowNewFolderInput(true);
+                            setShowNewFileInput(false);
+                            setTimeout(() => newFolderInputRef.current?.focus(), 100);
+                          }}
+                          className="p-1 hover:bg-[#2a2d3a] rounded transition-colors"
+                          title="New Folder"
+                        >
+                          <Folder className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
                     
                     {/* File Tree */}
                     <div className="p-2 overflow-y-auto h-full">
-                      <div className="text-xs font-medium text-[#cccccc] mb-2 px-2">HACKATHON-PLATFORM</div>
+                      <div className="text-xs font-medium text-[#cccccc] mb-2 px-2 flex items-center justify-between">
+                        <span>HACKATHON-PLATFORM</span>
+                        {selectedFolder && (
+                          <button
+                            onClick={() => setSelectedFolder(null)}
+                            className="text-[#969696] hover:text-white text-xs"
+                            title="Clear selection"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      {/* New File Input */}
+                      {showNewFileInput && (
+                        <div className="mb-2 px-2">
+                          <div className="flex items-center space-x-2 bg-[#1e1e1e] p-2 rounded border border-[#007acc]">
+                            <FileText className="h-3 w-3 text-[#007acc]" />
+                            <input
+                              ref={newFileInputRef}
+                              type="text"
+                              placeholder="File name (e.g., utils/helpers.js)"
+                              value={newFileName}
+                              onChange={(e) => setNewFileName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCreateFile();
+                                if (e.key === 'Escape') {
+                                  setShowNewFileInput(false);
+                                  setNewFileName('');
+                                }
+                              }}
+                              className="flex-1 bg-transparent text-white text-xs outline-none placeholder-[#858585]"
+                            />
+                            <button
+                              onClick={handleCreateFile}
+                              className="text-[#4ec9b0] hover:text-[#6ed7b7] text-xs"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewFileInput(false);
+                                setNewFileName('');
+                              }}
+                              className="text-[#f44747] hover:text-[#f66565] text-xs"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          {selectedFolder && (
+                            <p className="text-xs text-[#858585] mt-1 ml-1">
+                              Creating in: {selectedFolder}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* New Folder Input */}
+                      {showNewFolderInput && (
+                        <div className="mb-2 px-2">
+                          <div className="flex items-center space-x-2 bg-[#1e1e1e] p-2 rounded border border-[#007acc]">
+                            <Folder className="h-3 w-3 text-[#dcb67a]" />
+                            <input
+                              ref={newFolderInputRef}
+                              type="text"
+                              placeholder="Folder name (e.g., components)"
+                              value={newFolderName}
+                              onChange={(e) => setNewFolderName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCreateFolder();
+                                if (e.key === 'Escape') {
+                                  setShowNewFolderInput(false);
+                                  setNewFolderName('');
+                                }
+                              }}
+                              className="flex-1 bg-transparent text-white text-xs outline-none placeholder-[#858585]"
+                            />
+                            <button
+                              onClick={handleCreateFolder}
+                              className="text-[#4ec9b0] hover:text-[#6ed7b7] text-xs"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewFolderInput(false);
+                                setNewFolderName('');
+                              }}
+                              className="text-[#f44747] hover:text-[#f66565] text-xs"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          {selectedFolder && (
+                            <p className="text-xs text-[#858585] mt-1 ml-1">
+                              Creating in: {selectedFolder}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {renderFileTree(fileTree)}
                     </div>
                   </div>
@@ -1357,10 +1653,10 @@ export default ${fileName.replace('.jsx', '')};`;
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {chatMessages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.userId === (user.id || user._id || user.email) ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs ${msg.userId === (user.id || user._id || user.email) ? 'order-2' : 'order-1'}`}>
-                      <div className={`flex items-center space-x-2 mb-1 ${msg.userId === (user.id || user._id || user.email) ? 'justify-end' : 'justify-start'}`}>
-                        {msg.userId !== (user.id || user._id || user.email) && (
+                  <div key={msg.id} className={`flex ${msg.userId === (user?.id || user?._id || user?.email) ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs ${msg.userId === (user?.id || user?._id || user?.email) ? 'order-2' : 'order-1'}`}>
+                      <div className={`flex items-center space-x-2 mb-1 ${msg.userId === (user?.id || user?._id || user?.email) ? 'justify-end' : 'justify-start'}`}>
+                        {msg.userId !== (user?.id || user?._id || user?.email) && (
                           <div className="h-4 w-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                             <span className="text-xs font-medium text-white">{msg.avatar}</span>
                           </div>
@@ -1369,7 +1665,7 @@ export default ${fileName.replace('.jsx', '')};`;
                         <span className="text-xs text-[#858585]">{msg.time}</span>
                       </div>
                       <div className={`p-2 rounded text-sm ${
-                        msg.userId === (user.id || user._id || user.email) 
+                        msg.userId === (user?.id || user?._id || user?.email) 
                           ? 'bg-[#007acc] text-white' 
                           : msg.type === 'system'
                           ? 'bg-[#3e3e42] text-[#cccccc] italic'

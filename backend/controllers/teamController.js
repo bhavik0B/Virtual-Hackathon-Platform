@@ -249,8 +249,8 @@ async function sendTeamInvite(req, res) {
       port: 465,       // or 587 with secure: false
       secure: true,    // true for port 465, false for port 587
       auth: {
-        user: "prajwal.22210207@viit.ac.in",
-        pass: "dksd vlbf kvjv wkxx"   // the 16-char app password
+        user: process.env.GMAIL_USER_EMAIL, // your Gmail address
+        pass: process.env.GMAIL_APP_PASSWORD
       }
     });
 

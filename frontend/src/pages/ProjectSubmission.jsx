@@ -112,19 +112,6 @@ const ProjectSubmission = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Project Submissions</h1>
-          <p className="mt-2 text-gray-400">Submit and manage your hackathon projects</p>
-        </div>
-        <div className="mt-4 sm:mt-0">
-          <Button onClick={() => setShowSubmitModal(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Submit Project
-          </Button>
-        </div>
-      </div>
-
       {/* Current Hackathon */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
