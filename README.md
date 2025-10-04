@@ -89,6 +89,12 @@ Follow these instructions to get a local copy of the project up and running.
     GOOGLE_CLIENT_ID=your_google_client_id
     GOOGLE_CLIENT_SECRET=your_google_client_secret
     GOOGLE_CALLBACK_URL=http://localhost:5000/api/users/auth/google/callback
+
+    #Email Credentials
+    EMAIL_SERVICE=gmail
+    GMAIL_USER_EMAIL=
+    GMAIL_APP_PASSWORD=
+    EMAIL_FROM=
     ```
 
 4.  **Create an Admin User:** Run the following script to create a default admin user. You can modify the credentials in the script itself.

@@ -64,13 +64,28 @@ const EditorWorkspace = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editorTheme, setEditorTheme] = useState('vs-dark');
   const [fontSize, setFontSize] = useState(14);
+  const [showNewFileInput, setShowNewFileInput] = useState(false);
+  const [showNewFolderInput, setShowNewFolderInput] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [clipboard, setClipboard] = useState(null);
+  const [renamingItem, setRenamingItem] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const typingTimeoutRef = useRef(null);
+  
   const chatEndRef = useRef(null);
   const editorRef = useRef(null);
+  const newFileInputRef = useRef(null);
+  const newFolderInputRef = useRef(null);
+  const renameInputRef = useRef(null);
   const { success } = useToast();
   const socketRef = useRef();
   const { user } = useAuth();
-  const [typingUsers, setTypingUsers] = useState([]);
-  const typingTimeoutRef = useRef(null);
 
   // File system state with more realistic content
   const [fileTree, setFileTree] = useState([
@@ -171,7 +186,7 @@ function App() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     setCount(prevCount => prevCount + 1);
-    setMessage(\Count updated to \${count + 1}!\);
+    setMessage(\`Count updated to \${count + 1}!\`);
     setIsLoading(false);
   };
 
@@ -516,7 +531,7 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className={\sidebar \${isCollapsed ? 'collapsed' : ''}\}>
+    <aside className={\`sidebar \${isCollapsed ? 'collapsed' : ''}\`}>
       <div className="sidebar-header">
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -569,7 +584,7 @@ A modern hackathon collaboration platform built with React and Vite.
 
 ### Installation
 
-\\\`bash
+\`\`\`bash
 # Clone the repository
 git clone https://github.com/your-username/hackcollab.git
 
@@ -581,26 +596,26 @@ npm install
 
 # Start development server
 npm run dev
-\\\`
+\`\`\`
 
 ### Available Scripts
 
-- \npm run dev\ - Start development server
-- \npm run build\ - Build for production
-- \npm run preview\ - Preview production build
-- \npm run lint\ - Run ESLint
+- \`npm run dev\` - Start development server
+- \`npm run build\` - Build for production
+- \`npm run preview\` - Preview production build
+- \`npm run lint\` - Run ESLint
 
 ## Tech Stack
 
-- *Frontend*: React 18, Vite
-- *Styling*: Tailwind CSS
-- *Icons*: Lucide React
-- *Animation*: Framer Motion
-- *Editor*: Monaco Editor
+- **Frontend**: React 18, Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Animation**: Framer Motion
+- **Editor**: Monaco Editor
 
 ## Project Structure
 
-\\\`
+\`\`\`
 src/
 ├── components/     # Reusable components
 ├── pages/         # Page components
@@ -608,14 +623,14 @@ src/
 ├── layouts/       # Layout components
 ├── utils/         # Utility functions
 └── assets/        # Static assets
-\\\`
+\`\`\`
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (\git checkout -b feature/amazing-feature\)
-3. Commit your changes (\git commit -m 'Add some amazing feature'\)
-4. Push to the branch (\git push origin feature/amazing-feature\)
+2. Create your feature branch (\`git checkout -b feature/amazing-feature\`)
+3. Commit your changes (\`git commit -m 'Add some amazing feature'\`)
+4. Push to the branch (\`git push origin feature/amazing-feature\`)
 5. Open a Pull Request
 
 ## License
@@ -687,6 +702,20 @@ This project is licensed under the MIT License.
       socketRef.current.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [contextMenu]);
+
+  useEffect(() => {
+    if (renamingItem) {
+      setTimeout(() => renameInputRef.current?.select(), 100);
+    }
+  }, [renamingItem]);
 
   // Monaco Editor configuration
   const editorOptions = {
@@ -850,6 +879,427 @@ This project is licensed under the MIT License.
     setFileTree(updateTree(fileTree));
   };
 
+  const selectFolder = (folderPath) => {
+    setSelectedFolder(folderPath);
+  };
+
+  const handleContextMenu = (e, item, fullPath) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      item,
+      fullPath
+    });
+  };
+
+  const getFullPath = (items, targetName, currentPath = '') => {
+    for (const item of items) {
+      const path = currentPath ? `${currentPath}/${item.name}` : item.name;
+      if (item.name === targetName) {
+        return path;
+      }
+      if (item.children) {
+        const found = getFullPath(item.children, targetName, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const findItemByPath = (items, path) => {
+    const parts = path.split('/');
+    let current = items;
+
+    for (let i = 0; i < parts.length; i++) {
+      const item = current.find(item => item.name === parts[i]);
+      if (!item) return null;
+      if (i === parts.length - 1) return item;
+      if (item.children) {
+        current = item.children;
+      } else {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const removeItemByPath = (items, path) => {
+    const parts = path.split('/');
+    if (parts.length === 1) {
+      return items.filter(item => item.name !== parts[0]);
+    }
+
+    return items.map(item => {
+      if (item.name === parts[0] && item.children) {
+        return {
+          ...item,
+          children: removeItemByPath(item.children, parts.slice(1).join('/'))
+        };
+      }
+      return item;
+    });
+  };
+
+  const addItemToPath = (items, targetPath, newItem) => {
+    if (!targetPath) {
+      return [...items, newItem];
+    }
+
+    const parts = targetPath.split('/');
+    return items.map(item => {
+      if (item.name === parts[0]) {
+        if (parts.length === 1) {
+          return {
+            ...item,
+            children: [...(item.children || []), newItem],
+            expanded: true
+          };
+        }
+        if (item.children) {
+          return {
+            ...item,
+            children: addItemToPath(item.children, parts.slice(1).join('/'), newItem)
+          };
+        }
+      }
+      return item;
+    });
+  };
+
+  const renameItemByPath = (items, path, newName) => {
+    const parts = path.split('/');
+    if (parts.length === 1) {
+      return items.map(item =>
+        item.name === parts[0] ? { ...item, name: newName } : item
+      );
+    }
+
+    return items.map(item => {
+      if (item.name === parts[0] && item.children) {
+        return {
+          ...item,
+          children: renameItemByPath(item.children, parts.slice(1).join('/'), newName)
+        };
+      }
+      return item;
+    });
+  };
+
+  const handleRename = (item, fullPath) => {
+    setRenamingItem({ item, fullPath });
+    setRenameValue(item.name);
+    setContextMenu(null);
+  };
+
+  const handleRenameConfirm = () => {
+    if (!renameValue.trim() || !renamingItem) return;
+
+    const oldPath = renamingItem.fullPath;
+    const pathParts = oldPath.split('/');
+    pathParts[pathParts.length - 1] = renameValue;
+    const newPath = pathParts.join('/');
+
+    setFileTree(renameItemByPath(fileTree, oldPath, renameValue));
+
+    if (renamingItem.item.type === 'file') {
+      const oldContent = fileContents[oldPath];
+      if (oldContent) {
+        const newContents = { ...fileContents };
+        delete newContents[oldPath];
+        newContents[newPath] = oldContent;
+        setFileContents(newContents);
+      }
+
+      setOpenTabs(prev => prev.map(tab =>
+        tab.name === oldPath ? { ...tab, name: newPath } : tab
+      ));
+
+      if (activeTab === oldPath) {
+        setActiveTab(newPath);
+      }
+    }
+
+    success(`Renamed to ${renameValue}`);
+    setRenamingItem(null);
+    setRenameValue('');
+  };
+
+  const handleCut = (item, fullPath) => {
+    setClipboard({ item, fullPath, operation: 'cut' });
+    setContextMenu(null);
+    success(`Cut ${item.name}`);
+  };
+
+  const handleCopy = (item, fullPath) => {
+    setClipboard({ item, fullPath, operation: 'copy' });
+    setContextMenu(null);
+    success(`Copied ${item.name}`);
+  };
+
+  const duplicateItem = (item) => {
+    if (item.children) {
+      return {
+        ...item,
+        children: item.children.map(child => duplicateItem(child))
+      };
+    }
+    return { ...item };
+  };
+
+  const handlePaste = (targetFolder, targetPath) => {
+    if (!clipboard) return;
+
+    const { item, fullPath, operation } = clipboard;
+
+    if (operation === 'cut') {
+      setFileTree(prev => {
+        const removed = removeItemByPath(prev, fullPath);
+        return addItemToPath(removed, targetPath, item);
+      });
+
+      if (item.type === 'file') {
+        const content = fileContents[fullPath];
+        if (content) {
+          const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
+          const newContents = { ...fileContents };
+          delete newContents[fullPath];
+          newContents[newPath] = content;
+          setFileContents(newContents);
+
+          setOpenTabs(prev => prev.map(tab =>
+            tab.name === fullPath ? { ...tab, name: newPath } : tab
+          ));
+
+          if (activeTab === fullPath) {
+            setActiveTab(newPath);
+          }
+        }
+      }
+
+      setClipboard(null);
+      success(`Moved ${item.name}`);
+    } else if (operation === 'copy') {
+      const newItem = duplicateItem(item);
+      setFileTree(prev => addItemToPath(prev, targetPath, newItem));
+
+      if (item.type === 'file') {
+        const content = fileContents[fullPath];
+        if (content) {
+          const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
+          setFileContents(prev => ({ ...prev, [newPath]: content }));
+        }
+      }
+
+      success(`Pasted ${item.name}`);
+    }
+
+    setContextMenu(null);
+  };
+
+  const handleDelete = (item, fullPath) => {
+    setItemToDelete({ item, fullPath });
+    setShowDeleteConfirm(true);
+    setContextMenu(null);
+  };
+
+  const confirmDelete = () => {
+    if (!itemToDelete) return;
+
+    const { item, fullPath } = itemToDelete;
+
+    setFileTree(prev => removeItemByPath(prev, fullPath));
+
+    if (item.type === 'file') {
+      setFileContents(prev => {
+        const newContents = { ...prev };
+        delete newContents[fullPath];
+        return newContents;
+      });
+
+      setOpenTabs(prev => prev.filter(tab => tab.name !== fullPath));
+
+      if (activeTab === fullPath) {
+        const remainingTabs = openTabs.filter(tab => tab.name !== fullPath);
+        if (remainingTabs.length > 0) {
+          setActiveTab(remainingTabs[0].name);
+        }
+      }
+    }
+
+    success(`Deleted ${item.name}`);
+    setShowDeleteConfirm(false);
+    setItemToDelete(null);
+  };
+
+  const handleCopyPath = (fullPath) => {
+    navigator.clipboard.writeText(fullPath).then(() => {
+      success(`Copied path: ${fullPath}`);
+    });
+    setContextMenu(null);
+  };
+
+  const findFolderByPath = (items, path) => {
+    for (const item of items) {
+      if (item.name === path && item.type === 'folder') {
+        return item;
+      }
+      if (item.children) {
+        const found = findFolderByPath(item.children, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const createNestedPath = (items, pathParts, isFile) => {
+    if (pathParts.length === 0) return items;
+
+    const [current, ...rest] = pathParts;
+    const existingIndex = items.findIndex(item => item.name === current);
+
+    if (rest.length === 0) {
+      if (existingIndex === -1) {
+        const newItem = isFile
+          ? { name: current, type: 'file', hasErrors: false, language: getLanguageFromFile(current) }
+          : { name: current, type: 'folder', expanded: true, children: [] };
+        return [...items, newItem];
+      }
+      return items;
+    }
+
+    if (existingIndex === -1) {
+      const newFolder = {
+        name: current,
+        type: 'folder',
+        expanded: true,
+        children: createNestedPath([], rest, isFile)
+      };
+      return [...items, newFolder];
+    } else {
+      const updatedItems = [...items];
+      const existingItem = updatedItems[existingIndex];
+      if (existingItem.type === 'folder') {
+        updatedItems[existingIndex] = {
+          ...existingItem,
+          expanded: true,
+          children: createNestedPath(existingItem.children || [], rest, isFile)
+        };
+      }
+      return updatedItems;
+    }
+  };
+
+  const getLanguageFromFile = (fileName) => {
+    const ext = fileName.split('.').pop();
+    const langMap = {
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'javascript',
+      'tsx': 'javascript',
+      'css': 'css',
+      'html': 'html',
+      'json': 'json',
+      'md': 'markdown',
+      'txt': 'text'
+    };
+    return langMap[ext] || 'text';
+  };
+
+  const handleCreateFile = () => {
+    if (!newFileName.trim()) return;
+
+    const pathParts = newFileName.split('/');
+
+    if (selectedFolder) {
+      const folder = findFolderByPath(fileTree, selectedFolder);
+      if (folder) {
+        const updatedTree = fileTree.map(item => {
+          if (item.name === selectedFolder) {
+            return {
+              ...item,
+              children: createNestedPath(item.children || [], pathParts, true)
+            };
+          }
+          if (item.children) {
+            const updateInChildren = (children) => {
+              return children.map(child => {
+                if (child.name === selectedFolder) {
+                  return {
+                    ...child,
+                    children: createNestedPath(child.children || [], pathParts, true)
+                  };
+                }
+                if (child.children) {
+                  return { ...child, children: updateInChildren(child.children) };
+                }
+                return child;
+              });
+            };
+            return { ...item, children: updateInChildren(item.children) };
+          }
+          return item;
+        });
+        setFileTree(updatedTree);
+      }
+    } else {
+      setFileTree(createNestedPath(fileTree, pathParts, true));
+    }
+
+    const fullPath = pathParts.join('/');
+    openFile(fullPath, getLanguageFromFile(newFileName), false);
+
+    success(`File ${newFileName} created successfully!`);
+    setNewFileName('');
+    setShowNewFileInput(false);
+  };
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return;
+
+    const pathParts = newFolderName.split('/');
+
+    if (selectedFolder) {
+      const folder = findFolderByPath(fileTree, selectedFolder);
+      if (folder) {
+        const updatedTree = fileTree.map(item => {
+          if (item.name === selectedFolder) {
+            return {
+              ...item,
+              children: createNestedPath(item.children || [], pathParts, false)
+            };
+          }
+          if (item.children) {
+            const updateInChildren = (children) => {
+              return children.map(child => {
+                if (child.name === selectedFolder) {
+                  return {
+                    ...child,
+                    children: createNestedPath(child.children || [], pathParts, false)
+                  };
+                }
+                if (child.children) {
+                  return { ...child, children: updateInChildren(child.children) };
+                }
+                return child;
+              });
+            };
+            return { ...item, children: updateInChildren(item.children) };
+          }
+          return item;
+        });
+        setFileTree(updatedTree);
+      }
+    } else {
+      setFileTree(createNestedPath(fileTree, pathParts, false));
+    }
+
+    success(`Folder ${newFolderName} created successfully!`);
+    setNewFolderName('');
+    setShowNewFolderInput(false);
+  };
+
   const openFile = (fileName, language = 'javascript', hasErrors = false) => {
     const existingTab = openTabs.find(tab => tab.name === fileName);
     if (!existingTab) {
@@ -895,7 +1345,7 @@ export default ${fileName.replace('.jsx', '')};`;
   "version": "1.0.0"
 }`;
     }
-    return // ${fileName}\n\n;
+    return `// ${fileName}\n\n`;
   };
 
   const closeTab = (fileName) => {
@@ -960,41 +1410,79 @@ export default ${fileName.replace('.jsx', '')};`;
     }, 1000);
   };
 
-  const renderFileTree = (items, level = 0) => {
-    return items.map((item, index) => (
-      <div key={index} style={{ paddingLeft: `${level * 12}px` }}>
-        <div 
-          className={`flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-[#2a2d3a] transition-colors ${
-            item.active ? 'bg-[#37373d] text-white' : 'text-[#cccccc]'
-          }`}
-          onClick={() => item.type === 'folder' ? toggleFolder(item.name) : openFile(item.name, item.language, item.hasErrors)}
-        >
-          {item.type === 'folder' && (
-            <div className="mr-1">
-              {item.expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            </div>
-          )}
-          {item.type === 'folder' ? (
-            item.expanded ? 
-              <FolderOpen className="h-4 w-4 mr-2 text-[#dcb67a]" /> : 
-              <Folder className="h-4 w-4 mr-2 text-[#dcb67a]" />
-          ) : (
-            <div className="flex items-center">
-              <FileText className={`h-4 w-4 mr-2 ${getFileIconColor(item.language)}`} />
-              {item.hasErrors && (
-                <div className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></div>
-              )}
-            </div>
-          )}
-          <span className="truncate">{item.name}</span>
-        </div>
-        {item.children && item.expanded && (
-          <div>
-            {renderFileTree(item.children, level + 1)}
+  const renderFileTree = (items, level = 0, parentPath = '') => {
+    return items.map((item, index) => {
+      const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+      const isRenaming = renamingItem?.fullPath === fullPath;
+
+      return (
+        <div key={index} style={{ paddingLeft: `${level * 12}px` }}>
+          <div
+            className={`flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-[#2a2d3a] transition-colors ${
+              item.active || (item.type === 'folder' && selectedFolder === item.name)
+                ? 'bg-[#37373d] text-white'
+                : 'text-[#cccccc]'
+            }`}
+            onClick={() => {
+              if (item.type === 'folder') {
+                toggleFolder(item.name);
+                selectFolder(item.name);
+              } else {
+                openFile(fullPath, item.language, item.hasErrors);
+              }
+            }}
+            onContextMenu={(e) => handleContextMenu(e, item, fullPath)}
+          >
+            {item.type === 'folder' && (
+              <div className="mr-1">
+                {item.expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </div>
+            )}
+            {item.type === 'folder' ? (
+              item.expanded ?
+                <FolderOpen className="h-4 w-4 mr-2 text-[#dcb67a]" /> :
+                <Folder className="h-4 w-4 mr-2 text-[#dcb67a]" />
+            ) : (
+              <div className="flex items-center">
+                <FileText className={`h-4 w-4 mr-2 ${getFileIconColor(item.language)}`} />
+                {item.hasErrors && (
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></div>
+                )}
+              </div>
+            )}
+            {isRenaming ? (
+              <input
+                ref={renameInputRef}
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.stopPropagation();
+                    handleRenameConfirm();
+                  }
+                  if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setRenamingItem(null);
+                    setRenameValue('');
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={handleRenameConfirm}
+                className="flex-1 bg-[#3c3c3c] text-white text-xs px-1 py-0.5 rounded outline-none border border-[#007acc]"
+              />
+            ) : (
+              <span className="truncate">{item.name}</span>
+            )}
           </div>
-        )}
-      </div>
-    ));
+          {item.children && item.expanded && (
+            <div>
+              {renderFileTree(item.children, level + 1, fullPath)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   const getFileIconColor = (language) => {
@@ -1102,18 +1590,148 @@ export default ${fileName.replace('.jsx', '')};`;
                     <div className="h-8 bg-[#2d2d30] border-b border-[#2d2d30] flex items-center px-3 text-xs font-medium text-[#cccccc]">
                       <span>EXPLORER</span>
                       <div className="ml-auto flex space-x-1">
-                        <button className="p-1 hover:bg-[#2a2d3a] rounded">
-                          <Plus className="h-3 w-3" />
+                        <button
+                          onClick={() => {
+                            setShowNewFileInput(true);
+                            setShowNewFolderInput(false);
+                            setTimeout(() => newFileInputRef.current?.focus(), 100);
+                          }}
+                          className="p-1 hover:bg-[#2a2d3a] rounded transition-colors"
+                          title="New File"
+                        >
+                          <FileText className="h-3 w-3" />
                         </button>
-                        <button className="p-1 hover:bg-[#2a2d3a] rounded">
-                          <Search className="h-3 w-3" />
+                        <button
+                          onClick={() => {
+                            setShowNewFolderInput(true);
+                            setShowNewFileInput(false);
+                            setTimeout(() => newFolderInputRef.current?.focus(), 100);
+                          }}
+                          className="p-1 hover:bg-[#2a2d3a] rounded transition-colors"
+                          title="New Folder"
+                        >
+                          <Folder className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
                     
                     {/* File Tree */}
                     <div className="p-2 overflow-y-auto h-full">
-                      <div className="text-xs font-medium text-[#cccccc] mb-2 px-2">HACKATHON-PLATFORM</div>
+                      <div
+                        className="text-xs font-medium text-[#cccccc] mb-2 px-2 flex items-center justify-between"
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (clipboard) {
+                            setContextMenu({
+                              x: e.clientX,
+                              y: e.clientY,
+                              item: { type: 'folder', name: 'root' },
+                              fullPath: ''
+                            });
+                          }
+                        }}
+                      >
+                        <span>HACKATHON-PLATFORM</span>
+                        {selectedFolder && (
+                          <button
+                            onClick={() => setSelectedFolder(null)}
+                            className="text-[#969696] hover:text-white text-xs"
+                            title="Clear selection"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      {/* New File Input */}
+                      {showNewFileInput && (
+                        <div className="mb-2 px-2">
+                          <div className="flex items-center space-x-2 bg-[#1e1e1e] p-2 rounded border border-[#007acc]">
+                            <FileText className="h-3 w-3 text-[#007acc]" />
+                            <input
+                              ref={newFileInputRef}
+                              type="text"
+                              placeholder="File name (e.g., utils/helpers.js)"
+                              value={newFileName}
+                              onChange={(e) => setNewFileName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCreateFile();
+                                if (e.key === 'Escape') {
+                                  setShowNewFileInput(false);
+                                  setNewFileName('');
+                                }
+                              }}
+                              className="flex-1 bg-transparent text-white text-xs outline-none placeholder-[#858585]"
+                            />
+                            <button
+                              onClick={handleCreateFile}
+                              className="text-[#4ec9b0] hover:text-[#6ed7b7] text-xs"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewFileInput(false);
+                                setNewFileName('');
+                              }}
+                              className="text-[#f44747] hover:text-[#f66565] text-xs"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          {selectedFolder && (
+                            <p className="text-xs text-[#858585] mt-1 ml-1">
+                              Creating in: {selectedFolder}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* New Folder Input */}
+                      {showNewFolderInput && (
+                        <div className="mb-2 px-2">
+                          <div className="flex items-center space-x-2 bg-[#1e1e1e] p-2 rounded border border-[#007acc]">
+                            <Folder className="h-3 w-3 text-[#dcb67a]" />
+                            <input
+                              ref={newFolderInputRef}
+                              type="text"
+                              placeholder="Folder name (e.g., components)"
+                              value={newFolderName}
+                              onChange={(e) => setNewFolderName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCreateFolder();
+                                if (e.key === 'Escape') {
+                                  setShowNewFolderInput(false);
+                                  setNewFolderName('');
+                                }
+                              }}
+                              className="flex-1 bg-transparent text-white text-xs outline-none placeholder-[#858585]"
+                            />
+                            <button
+                              onClick={handleCreateFolder}
+                              className="text-[#4ec9b0] hover:text-[#6ed7b7] text-xs"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewFolderInput(false);
+                                setNewFolderName('');
+                              }}
+                              className="text-[#f44747] hover:text-[#f66565] text-xs"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          {selectedFolder && (
+                            <p className="text-xs text-[#858585] mt-1 ml-1">
+                              Creating in: {selectedFolder}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {renderFileTree(fileTree)}
                     </div>
                   </div>
@@ -1357,10 +1975,10 @@ export default ${fileName.replace('.jsx', '')};`;
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {chatMessages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.userId === (user.id || user._id || user.email) ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs ${msg.userId === (user.id || user._id || user.email) ? 'order-2' : 'order-1'}`}>
-                      <div className={`flex items-center space-x-2 mb-1 ${msg.userId === (user.id || user._id || user.email) ? 'justify-end' : 'justify-start'}`}>
-                        {msg.userId !== (user.id || user._id || user.email) && (
+                  <div key={msg.id} className={`flex ${msg.userId === (user?.id || user?._id || user?.email) ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs ${msg.userId === (user?.id || user?._id || user?.email) ? 'order-2' : 'order-1'}`}>
+                      <div className={`flex items-center space-x-2 mb-1 ${msg.userId === (user?.id || user?._id || user?.email) ? 'justify-end' : 'justify-start'}`}>
+                        {msg.userId !== (user?.id || user?._id || user?.email) && (
                           <div className="h-4 w-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                             <span className="text-xs font-medium text-white">{msg.avatar}</span>
                           </div>
@@ -1369,7 +1987,7 @@ export default ${fileName.replace('.jsx', '')};`;
                         <span className="text-xs text-[#858585]">{msg.time}</span>
                       </div>
                       <div className={`p-2 rounded text-sm ${
-                        msg.userId === (user.id || user._id || user.email) 
+                        msg.userId === (user?.id || user?._id || user?.email) 
                           ? 'bg-[#007acc] text-white' 
                           : msg.type === 'system'
                           ? 'bg-[#3e3e42] text-[#cccccc] italic'
@@ -1427,6 +2045,101 @@ export default ${fileName.replace('.jsx', '')};`;
         onClose={() => setShowVideoModal(false)}
         teamName="Code Warriors"
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-[#2d2d30] border border-[#454545] rounded shadow-2xl py-1 min-w-[180px] z-[100]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.item.name !== 'root' && (
+            <>
+              <button
+                onClick={() => handleRename(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Rename</span>
+              </button>
+              <div className="border-t border-[#454545] my-1"></div>
+              <button
+                onClick={() => handleCut(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Cut</span>
+              </button>
+              <button
+                onClick={() => handleCopy(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Copy</span>
+              </button>
+            </>
+          )}
+          {clipboard && (contextMenu.item.type === 'folder' || contextMenu.item.name === 'root') && (
+            <button
+              onClick={() => handlePaste(contextMenu.item, contextMenu.fullPath)}
+              className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+            >
+              <span>Paste</span>
+            </button>
+          )}
+          {contextMenu.item.name !== 'root' && (
+            <>
+              <div className="border-t border-[#454545] my-1"></div>
+              <button
+                onClick={() => handleCopyPath(contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Copy Path</span>
+              </button>
+              <div className="border-t border-[#454545] my-1"></div>
+              <button
+                onClick={() => handleDelete(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#f44747] hover:bg-[#094771] hover:text-[#ff6b6b] transition-colors flex items-center space-x-2"
+              >
+                <span>Delete</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && itemToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#2d2d30] border border-[#454545] rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+          >
+            <h3 className="text-lg font-medium text-white mb-3">Confirm Delete</h3>
+            <p className="text-[#cccccc] text-sm mb-6">
+              Are you sure you want to delete <span className="font-medium text-white">{itemToDelete.item.name}</span>?
+              {itemToDelete.item.type === 'folder' && (
+                <span className="block mt-2 text-[#f44747]">This will delete all files and folders inside it.</span>
+              )}
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setItemToDelete(null);
+                }}
+                className="px-4 py-2 bg-[#3c3c3c] text-white rounded hover:bg-[#4c4c4c] transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-[#f44747] text-white rounded hover:bg-[#ff5757] transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
