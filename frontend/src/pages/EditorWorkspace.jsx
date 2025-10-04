@@ -69,15 +69,23 @@ const EditorWorkspace = () => {
   const [newFileName, setNewFileName] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFolder, setSelectedFolder] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [clipboard, setClipboard] = useState(null);
+  const [renamingItem, setRenamingItem] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const typingTimeoutRef = useRef(null);
+  
   const chatEndRef = useRef(null);
   const editorRef = useRef(null);
   const newFileInputRef = useRef(null);
   const newFolderInputRef = useRef(null);
+  const renameInputRef = useRef(null);
   const { success } = useToast();
   const socketRef = useRef();
   const { user } = useAuth();
-  const [typingUsers, setTypingUsers] = useState([]);
-  const typingTimeoutRef = useRef(null);
 
   // File system state with more realistic content
   const [fileTree, setFileTree] = useState([
@@ -695,6 +703,20 @@ This project is licensed under the MIT License.
     };
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [contextMenu]);
+
+  useEffect(() => {
+    if (renamingItem) {
+      setTimeout(() => renameInputRef.current?.select(), 100);
+    }
+  }, [renamingItem]);
+
   // Monaco Editor configuration
   const editorOptions = {
     selectOnLineNumbers: true,
@@ -859,6 +881,263 @@ This project is licensed under the MIT License.
 
   const selectFolder = (folderPath) => {
     setSelectedFolder(folderPath);
+  };
+
+  const handleContextMenu = (e, item, fullPath) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      item,
+      fullPath
+    });
+  };
+
+  const getFullPath = (items, targetName, currentPath = '') => {
+    for (const item of items) {
+      const path = currentPath ? `${currentPath}/${item.name}` : item.name;
+      if (item.name === targetName) {
+        return path;
+      }
+      if (item.children) {
+        const found = getFullPath(item.children, targetName, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const findItemByPath = (items, path) => {
+    const parts = path.split('/');
+    let current = items;
+
+    for (let i = 0; i < parts.length; i++) {
+      const item = current.find(item => item.name === parts[i]);
+      if (!item) return null;
+      if (i === parts.length - 1) return item;
+      if (item.children) {
+        current = item.children;
+      } else {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const removeItemByPath = (items, path) => {
+    const parts = path.split('/');
+    if (parts.length === 1) {
+      return items.filter(item => item.name !== parts[0]);
+    }
+
+    return items.map(item => {
+      if (item.name === parts[0] && item.children) {
+        return {
+          ...item,
+          children: removeItemByPath(item.children, parts.slice(1).join('/'))
+        };
+      }
+      return item;
+    });
+  };
+
+  const addItemToPath = (items, targetPath, newItem) => {
+    if (!targetPath) {
+      return [...items, newItem];
+    }
+
+    const parts = targetPath.split('/');
+    return items.map(item => {
+      if (item.name === parts[0]) {
+        if (parts.length === 1) {
+          return {
+            ...item,
+            children: [...(item.children || []), newItem],
+            expanded: true
+          };
+        }
+        if (item.children) {
+          return {
+            ...item,
+            children: addItemToPath(item.children, parts.slice(1).join('/'), newItem)
+          };
+        }
+      }
+      return item;
+    });
+  };
+
+  const renameItemByPath = (items, path, newName) => {
+    const parts = path.split('/');
+    if (parts.length === 1) {
+      return items.map(item =>
+        item.name === parts[0] ? { ...item, name: newName } : item
+      );
+    }
+
+    return items.map(item => {
+      if (item.name === parts[0] && item.children) {
+        return {
+          ...item,
+          children: renameItemByPath(item.children, parts.slice(1).join('/'), newName)
+        };
+      }
+      return item;
+    });
+  };
+
+  const handleRename = (item, fullPath) => {
+    setRenamingItem({ item, fullPath });
+    setRenameValue(item.name);
+    setContextMenu(null);
+  };
+
+  const handleRenameConfirm = () => {
+    if (!renameValue.trim() || !renamingItem) return;
+
+    const oldPath = renamingItem.fullPath;
+    const pathParts = oldPath.split('/');
+    pathParts[pathParts.length - 1] = renameValue;
+    const newPath = pathParts.join('/');
+
+    setFileTree(renameItemByPath(fileTree, oldPath, renameValue));
+
+    if (renamingItem.item.type === 'file') {
+      const oldContent = fileContents[oldPath];
+      if (oldContent) {
+        const newContents = { ...fileContents };
+        delete newContents[oldPath];
+        newContents[newPath] = oldContent;
+        setFileContents(newContents);
+      }
+
+      setOpenTabs(prev => prev.map(tab =>
+        tab.name === oldPath ? { ...tab, name: newPath } : tab
+      ));
+
+      if (activeTab === oldPath) {
+        setActiveTab(newPath);
+      }
+    }
+
+    success(`Renamed to ${renameValue}`);
+    setRenamingItem(null);
+    setRenameValue('');
+  };
+
+  const handleCut = (item, fullPath) => {
+    setClipboard({ item, fullPath, operation: 'cut' });
+    setContextMenu(null);
+    success(`Cut ${item.name}`);
+  };
+
+  const handleCopy = (item, fullPath) => {
+    setClipboard({ item, fullPath, operation: 'copy' });
+    setContextMenu(null);
+    success(`Copied ${item.name}`);
+  };
+
+  const duplicateItem = (item) => {
+    if (item.children) {
+      return {
+        ...item,
+        children: item.children.map(child => duplicateItem(child))
+      };
+    }
+    return { ...item };
+  };
+
+  const handlePaste = (targetFolder, targetPath) => {
+    if (!clipboard) return;
+
+    const { item, fullPath, operation } = clipboard;
+
+    if (operation === 'cut') {
+      setFileTree(prev => {
+        const removed = removeItemByPath(prev, fullPath);
+        return addItemToPath(removed, targetPath, item);
+      });
+
+      if (item.type === 'file') {
+        const content = fileContents[fullPath];
+        if (content) {
+          const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
+          const newContents = { ...fileContents };
+          delete newContents[fullPath];
+          newContents[newPath] = content;
+          setFileContents(newContents);
+
+          setOpenTabs(prev => prev.map(tab =>
+            tab.name === fullPath ? { ...tab, name: newPath } : tab
+          ));
+
+          if (activeTab === fullPath) {
+            setActiveTab(newPath);
+          }
+        }
+      }
+
+      setClipboard(null);
+      success(`Moved ${item.name}`);
+    } else if (operation === 'copy') {
+      const newItem = duplicateItem(item);
+      setFileTree(prev => addItemToPath(prev, targetPath, newItem));
+
+      if (item.type === 'file') {
+        const content = fileContents[fullPath];
+        if (content) {
+          const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
+          setFileContents(prev => ({ ...prev, [newPath]: content }));
+        }
+      }
+
+      success(`Pasted ${item.name}`);
+    }
+
+    setContextMenu(null);
+  };
+
+  const handleDelete = (item, fullPath) => {
+    setItemToDelete({ item, fullPath });
+    setShowDeleteConfirm(true);
+    setContextMenu(null);
+  };
+
+  const confirmDelete = () => {
+    if (!itemToDelete) return;
+
+    const { item, fullPath } = itemToDelete;
+
+    setFileTree(prev => removeItemByPath(prev, fullPath));
+
+    if (item.type === 'file') {
+      setFileContents(prev => {
+        const newContents = { ...prev };
+        delete newContents[fullPath];
+        return newContents;
+      });
+
+      setOpenTabs(prev => prev.filter(tab => tab.name !== fullPath));
+
+      if (activeTab === fullPath) {
+        const remainingTabs = openTabs.filter(tab => tab.name !== fullPath);
+        if (remainingTabs.length > 0) {
+          setActiveTab(remainingTabs[0].name);
+        }
+      }
+    }
+
+    success(`Deleted ${item.name}`);
+    setShowDeleteConfirm(false);
+    setItemToDelete(null);
+  };
+
+  const handleCopyPath = (fullPath) => {
+    navigator.clipboard.writeText(fullPath).then(() => {
+      success(`Copied path: ${fullPath}`);
+    });
+    setContextMenu(null);
   };
 
   const findFolderByPath = (items, path) => {
@@ -1131,50 +1410,79 @@ export default ${fileName.replace('.jsx', '')};`;
     }, 1000);
   };
 
-  const renderFileTree = (items, level = 0) => {
-    return items.map((item, index) => (
-      <div key={index} style={{ paddingLeft: `${level * 12}px` }}>
-        <div
-          className={`flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-[#2a2d3a] transition-colors ${
-            item.active || (item.type === 'folder' && selectedFolder === item.name)
-              ? 'bg-[#37373d] text-white'
-              : 'text-[#cccccc]'
-          }`}
-          onClick={() => {
-            if (item.type === 'folder') {
-              toggleFolder(item.name);
-              selectFolder(item.name);
-            } else {
-              openFile(item.name, item.language, item.hasErrors);
-            }
-          }}
-        >
-          {item.type === 'folder' && (
-            <div className="mr-1">
-              {item.expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            </div>
-          )}
-          {item.type === 'folder' ? (
-            item.expanded ?
-              <FolderOpen className="h-4 w-4 mr-2 text-[#dcb67a]" /> :
-              <Folder className="h-4 w-4 mr-2 text-[#dcb67a]" />
-          ) : (
-            <div className="flex items-center">
-              <FileText className={`h-4 w-4 mr-2 ${getFileIconColor(item.language)}`} />
-              {item.hasErrors && (
-                <div className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></div>
-              )}
-            </div>
-          )}
-          <span className="truncate">{item.name}</span>
-        </div>
-        {item.children && item.expanded && (
-          <div>
-            {renderFileTree(item.children, level + 1)}
+  const renderFileTree = (items, level = 0, parentPath = '') => {
+    return items.map((item, index) => {
+      const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+      const isRenaming = renamingItem?.fullPath === fullPath;
+
+      return (
+        <div key={index} style={{ paddingLeft: `${level * 12}px` }}>
+          <div
+            className={`flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-[#2a2d3a] transition-colors ${
+              item.active || (item.type === 'folder' && selectedFolder === item.name)
+                ? 'bg-[#37373d] text-white'
+                : 'text-[#cccccc]'
+            }`}
+            onClick={() => {
+              if (item.type === 'folder') {
+                toggleFolder(item.name);
+                selectFolder(item.name);
+              } else {
+                openFile(fullPath, item.language, item.hasErrors);
+              }
+            }}
+            onContextMenu={(e) => handleContextMenu(e, item, fullPath)}
+          >
+            {item.type === 'folder' && (
+              <div className="mr-1">
+                {item.expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </div>
+            )}
+            {item.type === 'folder' ? (
+              item.expanded ?
+                <FolderOpen className="h-4 w-4 mr-2 text-[#dcb67a]" /> :
+                <Folder className="h-4 w-4 mr-2 text-[#dcb67a]" />
+            ) : (
+              <div className="flex items-center">
+                <FileText className={`h-4 w-4 mr-2 ${getFileIconColor(item.language)}`} />
+                {item.hasErrors && (
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></div>
+                )}
+              </div>
+            )}
+            {isRenaming ? (
+              <input
+                ref={renameInputRef}
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.stopPropagation();
+                    handleRenameConfirm();
+                  }
+                  if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setRenamingItem(null);
+                    setRenameValue('');
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={handleRenameConfirm}
+                className="flex-1 bg-[#3c3c3c] text-white text-xs px-1 py-0.5 rounded outline-none border border-[#007acc]"
+              />
+            ) : (
+              <span className="truncate">{item.name}</span>
+            )}
           </div>
-        )}
-      </div>
-    ));
+          {item.children && item.expanded && (
+            <div>
+              {renderFileTree(item.children, level + 1, fullPath)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   const getFileIconColor = (language) => {
@@ -1309,7 +1617,21 @@ export default ${fileName.replace('.jsx', '')};`;
                     
                     {/* File Tree */}
                     <div className="p-2 overflow-y-auto h-full">
-                      <div className="text-xs font-medium text-[#cccccc] mb-2 px-2 flex items-center justify-between">
+                      <div
+                        className="text-xs font-medium text-[#cccccc] mb-2 px-2 flex items-center justify-between"
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (clipboard) {
+                            setContextMenu({
+                              x: e.clientX,
+                              y: e.clientY,
+                              item: { type: 'folder', name: 'root' },
+                              fullPath: ''
+                            });
+                          }
+                        }}
+                      >
                         <span>HACKATHON-PLATFORM</span>
                         {selectedFolder && (
                           <button
@@ -1723,6 +2045,101 @@ export default ${fileName.replace('.jsx', '')};`;
         onClose={() => setShowVideoModal(false)}
         teamName="Code Warriors"
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-[#2d2d30] border border-[#454545] rounded shadow-2xl py-1 min-w-[180px] z-[100]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.item.name !== 'root' && (
+            <>
+              <button
+                onClick={() => handleRename(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Rename</span>
+              </button>
+              <div className="border-t border-[#454545] my-1"></div>
+              <button
+                onClick={() => handleCut(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Cut</span>
+              </button>
+              <button
+                onClick={() => handleCopy(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Copy</span>
+              </button>
+            </>
+          )}
+          {clipboard && (contextMenu.item.type === 'folder' || contextMenu.item.name === 'root') && (
+            <button
+              onClick={() => handlePaste(contextMenu.item, contextMenu.fullPath)}
+              className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+            >
+              <span>Paste</span>
+            </button>
+          )}
+          {contextMenu.item.name !== 'root' && (
+            <>
+              <div className="border-t border-[#454545] my-1"></div>
+              <button
+                onClick={() => handleCopyPath(contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#cccccc] hover:bg-[#094771] hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <span>Copy Path</span>
+              </button>
+              <div className="border-t border-[#454545] my-1"></div>
+              <button
+                onClick={() => handleDelete(contextMenu.item, contextMenu.fullPath)}
+                className="w-full px-4 py-1.5 text-left text-sm text-[#f44747] hover:bg-[#094771] hover:text-[#ff6b6b] transition-colors flex items-center space-x-2"
+              >
+                <span>Delete</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && itemToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#2d2d30] border border-[#454545] rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+          >
+            <h3 className="text-lg font-medium text-white mb-3">Confirm Delete</h3>
+            <p className="text-[#cccccc] text-sm mb-6">
+              Are you sure you want to delete <span className="font-medium text-white">{itemToDelete.item.name}</span>?
+              {itemToDelete.item.type === 'folder' && (
+                <span className="block mt-2 text-[#f44747]">This will delete all files and folders inside it.</span>
+              )}
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setItemToDelete(null);
+                }}
+                className="px-4 py-2 bg-[#3c3c3c] text-white rounded hover:bg-[#4c4c4c] transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-[#f44747] text-white rounded hover:bg-[#ff5757] transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
