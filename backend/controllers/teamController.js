@@ -250,7 +250,7 @@ async function sendTeamInvite(req, res) {
       secure: true,    // true for port 465, false for port 587
       auth: {
         user: process.env.GMAIL_USER_EMAIL, // your Gmail address
-        pass: process.env.GMAIL_APP_PASSWORD,   // the 16-char app password
+        pass: process.env.GMAIL_APP_PASSWORD
       }
     });
 
