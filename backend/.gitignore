@@ -3,3 +3,6 @@ node_modules/
 
 #Envi
 .env
+
+# projects folder structure
+projects/

@@ -2,10 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import Editor from '@monaco-editor/react';
-import { 
-  Play, 
-  Save, 
-  Share2, 
+import {  
   MessageSquare, 
   Send, 
   Users,
@@ -15,49 +12,30 @@ import {
   ChevronDown,
   ChevronRight,
   Video,
-  Plus,
   X,
-  Download,
-  Upload,
-  Copy,
   Check,
   Maximize2,
   Minimize2,
-  Circle,
-  User,
   FolderOpen,
-  Code,
   Terminal,
   AlertTriangle,
   CheckCircle,
   Info,
-  Zap,
   GitBranch,
   Search,
-  Filter,
-  MoreHorizontal,
-  Layers,
-  Database,
-  Globe,
-  Cpu,
-  Activity,
-  Menu,
-  Code2,
-  PanelLeftClose,
-  PanelLeft
 } from 'lucide-react';
-import Button from '../components/Button';
 import VideoCallModal from '../components/VideoCallModal';
 import { useToast } from '../contexts/ToastContext';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../utils/axiosConfig';
 
 const EditorWorkspace = () => {
   const [showChatModal, setShowChatModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [message, setMessage] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeTab, setActiveTab] = useState('App.jsx');
+  const [activeTab, setActiveTab] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showTerminal, setShowTerminal] = useState(true);
   const [terminalTab, setTerminalTab] = useState('terminal');
@@ -77,599 +55,40 @@ const EditorWorkspace = () => {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [typingUsers, setTypingUsers] = useState([]);
   const typingTimeoutRef = useRef(null);
+  const [currentTeam, setCurrentTeam] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableTeams, setAvailableTeams] = useState([]);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
   
   const chatEndRef = useRef(null);
   const editorRef = useRef(null);
   const newFileInputRef = useRef(null);
   const newFolderInputRef = useRef(null);
   const renameInputRef = useRef(null);
-  const { success } = useToast();
+  const { success, error } = useToast();
   const socketRef = useRef();
   const { user } = useAuth();
 
-  // File system state with more realistic content
-  const [fileTree, setFileTree] = useState([
-    { 
-      name: 'src', 
-      type: 'folder', 
-      expanded: true, 
-      children: [
-        { name: 'App.jsx', type: 'file', active: true, hasErrors: false, language: 'javascript' },
-        { name: 'index.js', type: 'file', hasErrors: false, language: 'javascript' },
-        { name: 'index.css', type: 'file', hasErrors: false, language: 'css' },
-        { 
-          name: 'components', 
-          type: 'folder', 
-          expanded: true,
-          children: [
-            { name: 'Header.jsx', type: 'file', hasErrors: false, language: 'javascript' },
-            { name: 'Sidebar.jsx', type: 'file', hasErrors: true, language: 'javascript' },
-            { name: 'Button.jsx', type: 'file', hasErrors: false, language: 'javascript' }
-          ]
-        },
-        { 
-          name: 'pages', 
-          type: 'folder', 
-          expanded: false,
-          children: [
-            { name: 'Dashboard.jsx', type: 'file', hasErrors: false, language: 'javascript' },
-            { name: 'Profile.jsx', type: 'file', hasErrors: false, language: 'javascript' }
-          ]
-        },
-        { 
-          name: 'utils', 
-          type: 'folder', 
-          expanded: false,
-          children: [
-            { name: 'api.js', type: 'file', hasErrors: false, language: 'javascript' },
-            { name: 'helpers.js', type: 'file', hasErrors: false, language: 'javascript' }
-          ]
-        }
-      ]
-    },
-    { 
-      name: 'public', 
-      type: 'folder', 
-      expanded: false,
-      children: [
-        { name: 'index.html', type: 'file', hasErrors: false, language: 'html' },
-        { name: 'favicon.ico', type: 'file', hasErrors: false, language: 'image' }
-      ]
-    },
-    { name: 'package.json', type: 'file', hasErrors: false, language: 'json' },
-    { name: 'README.md', type: 'file', hasErrors: false, language: 'markdown' },
-    { name: 'vite.config.js', type: 'file', hasErrors: false, language: 'javascript' }
-  ]);
+  // File system state - starts empty, populated from server
+  const [fileTree, setFileTree] = useState([]);
 
-  // File contents mapping
-  const [fileContents, setFileContents] = useState({
-    'App.jsx': `import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Header from './components/Header';
-import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import './App.css';
+  // File contents mapping - starts empty, populated from server
+  const [fileContents, setFileContents] = useState({});
 
-function App() {
-  const [count, setCount] = useState(0);
-  const [message, setMessage] = useState('Welcome to HackCollab!');
-  const [isLoading, setIsLoading] = useState(false);
-  const [user, setUser] = useState(null);
-
-  // Effect hook for component lifecycle
-  useEffect(() => {
-    console.log('App component mounted');
-    fetchUserData();
-    return () => console.log('App component unmounted');
-  }, []);
-
-  const fetchUserData = async () => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setUser({
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com'
-      });
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleIncrement = async () => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setCount(prevCount => prevCount + 1);
-    setMessage(\`Count updated to \${count + 1}!\`);
-    setIsLoading(false);
-  };
-
-  const handleReset = () => {
-    setCount(0);
-    setMessage('Counter reset!');
-  };
-
-  if (isLoading && !user) {
-    return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  return (
-    <Router>
-      <motion.div 
-        className="app-container"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Header user={user} />
-        
-        <div className="app-layout">
-          <Sidebar />
-          
-          <main className="app-main">
-            <Routes>
-              <Route path="/" element={
-                <section className="counter-section">
-                  <h1 className="title">HackCollab Project</h1>
-                  <p className="subtitle">{message}</p>
-                  
-                  <div className="counter-display">
-                    <h2>Counter: {count}</h2>
-                  </div>
-                  
-                  <div className="button-group">
-                    <button 
-                      onClick={handleIncrement}
-                      disabled={isLoading}
-                      className="btn btn-primary"
-                    >
-                      {isLoading ? 'Loading...' : 'Increment'}
-                    </button>
-                    <button 
-                      onClick={handleReset}
-                      className="btn btn-secondary"
-                      disabled={isLoading}
-                    >
-                      Reset
-                    </button>
-                  </div>
-                  
-                  {user && (
-                    <div className="user-info">
-                      <h3>Welcome, {user.name}!</h3>
-                      <p>Email: {user.email}</p>
-                    </div>
-                  )}
-                </section>
-              } />
-              <Route path="/dashboard" element={<Dashboard />} />
-            </Routes>
-          </main>
-        </div>
-      </motion.div>
-    </Router>
-  );
-}
-
-export default App;`,
-
-    'index.css': `/* Modern CSS Reset */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-* {
-  margin: 0;
-}
-
-body {
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  font-family: 'Inter', system-ui, sans-serif;
-  background-color: #0f172a;
-  color: #f1f5f9;
-}
-
-img, picture, video, canvas, svg {
-  display: block;
-  max-width: 100%;
-}
-
-input, button, textarea, select {
-  font: inherit;
-}
-
-p, h1, h2, h3, h4, h5, h6 {
-  overflow-wrap: break-word;
-}
-
-/* App Styles */
-.app-container {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.app-layout {
-  display: flex;
-  flex: 1;
-}
-
-.app-main {
-  flex: 1;
-  padding: 2rem;
-  overflow-y: auto;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  gap: 1rem;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top: 4px solid #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.counter-section {
-  max-width: 600px;
-  margin: 0 auto;
-  text-align: center;
-  padding: 2rem;
-}
-
-.title {
-  font-size: 3rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.subtitle {
-  font-size: 1.25rem;
-  color: #94a3b8;
-  margin-bottom: 2rem;
-}
-
-.counter-display {
-  margin: 2rem 0;
-  padding: 2rem;
-  background: rgba(30, 41, 59, 0.5);
-  border-radius: 1rem;
-  border: 1px solid #334155;
-}
-
-.counter-display h2 {
-  font-size: 2rem;
-  color: #f1f5f9;
-}
-
-.button-group {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin: 2rem 0;
-}
-
-.btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 1rem;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
-}
-
-.btn-secondary {
-  background: #475569;
-  color: white;
-  border: 1px solid #64748b;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #64748b;
-  transform: translateY(-2px);
-}
-
-.user-info {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 0.75rem;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-.user-info h3 {
-  color: #60a5fa;
-  margin-bottom: 0.5rem;
-}
-
-.user-info p {
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .title {
-    font-size: 2rem;
-  }
-  
-  .button-group {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .btn {
-    width: 200px;
-  }
-}`,
-
-    'package.json': `{
-  "name": "hackathon-platform",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0",
-    "framer-motion": "^11.3.19",
-    "lucide-react": "^0.427.0",
-    "react-resizable-panels": "^2.0.19",
-    "@monaco-editor/react": "^4.6.0",
-    "monaco-editor": "^0.44.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.9.1",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.9.1",
-    "eslint-plugin-react": "^7.37.0",
-    "eslint-plugin-react-refresh": "^0.4.11",
-    "globals": "^15.9.0",
-    "postcss": "^8.4.41",
-    "tailwindcss": "^3.4.9",
-    "vite": "^5.4.2"
-  }
-}`,
-
-    'components/Header.jsx': `import React from 'react';
-import { User, Bell, Settings } from 'lucide-react';
-
-const Header = ({ user }) => {
-  return (
-    <header className="header">
-      <div className="header-content">
-        <div className="logo">
-          <h1>HackCollab</h1>
-        </div>
-        
-        <div className="header-actions">
-          <button className="icon-btn">
-            <Bell size={20} />
-          </button>
-          <button className="icon-btn">
-            <Settings size={20} />
-          </button>
-          {user && (
-            <div className="user-menu">
-              <User size={20} />
-              <span>{user.name}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-};
-
-export default Header;`,
-
-    'components/Sidebar.jsx': `import React, { useState } from 'react';
-import { Home, Users, Code, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
-
-const Sidebar = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/' },
-    { icon: Users, label: 'Teams', path: '/teams' },
-    { icon: Code, label: 'Projects', path: '/projects' },
-    { icon: Settings, label: 'Settings', path: '/settings' }
-  ];
-
-  return (
-    <aside className={\`sidebar \${isCollapsed ? 'collapsed' : ''}\`}>
-      <div className="sidebar-header">
-        <button 
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="collapse-btn"
-        >
-          {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-        </button>
-      </div>
-      
-      <nav className="sidebar-nav">
-        {menuItems.map((item, index) => {
-          const Icon = item.icon;
-          return (
-            <a 
-              key={index}
-              href={item.path}
-              className="nav-item"
-              title={isCollapsed ? item.label : ''}
-            >
-              <Icon size={20} />
-              {!isCollapsed && <span>{item.label}</span>}
-            </a>
-          );
-        })}
-      </nav>
-    </aside>
-  );
-};
-
-export default Sidebar;`,
-
-    'README.md': `# HackCollab Platform
-
-A modern hackathon collaboration platform built with React and Vite.
-
-## Features
-
-- 🚀 Real-time collaboration
-- 👥 Team management
-- 💻 Integrated code editor
-- 🎯 Project submissions
-- 🏆 Leaderboards
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-\`\`\`bash
-# Clone the repository
-git clone https://github.com/your-username/hackcollab.git
-
-# Navigate to project directory
-cd hackcollab
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-\`\`\`
-
-### Available Scripts
-
-- \`npm run dev\` - Start development server
-- \`npm run build\` - Build for production
-- \`npm run preview\` - Preview production build
-- \`npm run lint\` - Run ESLint
-
-## Tech Stack
-
-- **Frontend**: React 18, Vite
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Animation**: Framer Motion
-- **Editor**: Monaco Editor
-
-## Project Structure
-
-\`\`\`
-src/
-├── components/     # Reusable components
-├── pages/         # Page components
-├── contexts/      # React contexts
-├── layouts/       # Layout components
-├── utils/         # Utility functions
-└── assets/        # Static assets
-\`\`\`
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (\`git checkout -b feature/amazing-feature\`)
-3. Commit your changes (\`git commit -m 'Add some amazing feature'\`)
-4. Push to the branch (\`git push origin feature/amazing-feature\`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License.
-`
-  });
-
-  // Open tabs with file contents
-  const [openTabs, setOpenTabs] = useState([
-    { name: 'App.jsx', hasErrors: false, language: 'javascript', modified: false },
-    { name: 'index.css', hasErrors: false, language: 'css', modified: false },
-    { name: 'components/Sidebar.jsx', hasErrors: true, language: 'javascript', modified: false }
-  ]);
+  // Open tabs - starts empty, populated when files are opened
+  const [openTabs, setOpenTabs] = useState([]);
 
   // Chat messages
   const [chatMessages, setChatMessages] = useState([]);
 
-  // Terminal output
-  const [terminalOutput] = useState([
-    { type: 'command', text: '$ npm run dev', time: '14:30:15' },
-    { type: 'info', text: '> hackathon-platform@0.0.0 dev', time: '14:30:15' },
-    { type: 'success', text: '  VITE v5.4.2  ready in 1.2s', time: '14:30:16' },
-    { type: 'info', text: '  ➜  Local:   http://localhost:5173/', time: '14:30:16' },
-    { type: 'success', text: '  ➜  press h + enter to show help', time: '14:30:16' }
-  ]);
+  // Terminal output - starts empty, populated with real terminal data
+  const [terminalOutput, setTerminalOutput] = useState([]);
 
-  // Problems
-  const [problems] = useState([
-    { type: 'error', file: 'src/components/Sidebar.jsx', line: 45, message: 'React Hook useEffect has a missing dependency', severity: 'error' },
-    { type: 'warning', file: 'src/App.jsx', line: 23, message: 'Unused variable \'handleSubmit\'', severity: 'warning' }
-  ]);
+  // Problems - starts empty, populated from linter/compiler
+  const [problems, setProblems] = useState([]);
 
-  // Team members
-  const [teamMembers] = useState([
-    { name: 'You', status: 'online', avatar: 'JD', activity: 'Editing App.jsx' },
-    { name: 'Sarah Chen', status: 'online', avatar: 'SC', activity: 'Reviewing code' },
-    { name: 'Mike Rodriguez', status: 'online', avatar: 'MR', activity: 'In terminal' }
-  ]);
+  // Team members - starts empty, populated from current team
+  const [teamMembers, setTeamMembers] = useState([]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -716,6 +135,139 @@ This project is licensed under the MIT License.
       setTimeout(() => renameInputRef.current?.select(), 100);
     }
   }, [renamingItem]);
+
+  useEffect(() => {
+    // Load user's teams when component mounts
+    if (user) {
+      loadUserTeams();
+    }
+  }, [user]);
+
+  // Load team files from server
+  const loadTeamFiles = async (teamId) => {
+    try {
+      const response = await api.get(`/files/team/${teamId}/files`);
+      const files = response.data.files || [];
+      
+      // Convert flat file list to tree structure
+      const tree = buildFileTree(files);
+      setFileTree(tree);
+      
+      // Load team members
+      await loadTeamMembers(teamId);
+    } catch (err) {
+      console.error('Load team files error:', err);
+      error(err.response?.data?.message || 'Failed to load team files');
+    }
+  };
+
+  // Load team members
+  const loadTeamMembers = async (teamId) => {
+    try {
+      const response = await api.get(`/teams/${teamId}/members`);
+      const members = response.data.members || [];
+      
+      // Transform team members data for display
+      const formattedMembers = members.map(member => ({
+        name: member.name || member.email || 'Unknown',
+        status: 'online', // This would be real-time in a full implementation
+        avatar: (member.name || member.email || 'U').charAt(0).toUpperCase(),
+        activity: 'Active',
+        _id: member._id || member.id
+      }));
+      
+      setTeamMembers(formattedMembers);
+    } catch (err) {
+      console.error('Load team members error:', err);
+      // Don't show error for members loading failure
+    }
+  };
+
+  // Convert flat file list to tree structure
+  const buildFileTree = (files) => {
+    const tree = [];
+    const pathMap = {};
+
+    files.forEach(file => {
+      const parts = file.name.split('/');
+      let currentPath = '';
+      
+      parts.forEach((part, index) => {
+        const path = currentPath ? `${currentPath}/${part}` : part;
+        
+        if (!pathMap[path]) {
+          const item = {
+            name: part,
+            type: index === parts.length - 1 ? 'file' : 'folder',
+            expanded: true,
+            hasErrors: false,
+            language: index === parts.length - 1 ? getLanguageFromFile(part) : null,
+            children: index === parts.length - 1 ? undefined : []
+          };
+          
+          pathMap[path] = item;
+          
+          if (currentPath === '') {
+            tree.push(item);
+          } else {
+            const parent = pathMap[currentPath];
+            if (parent && parent.children) {
+              parent.children.push(item);
+            }
+          }
+        }
+        
+        currentPath = path;
+      });
+    });
+
+    return tree;
+  };
+
+  // Set current team (called from parent component or team selection)
+  const setTeam = (team) => {
+    setCurrentTeam(team);
+    if (team) {
+      loadTeamFiles(team._id);
+    }
+  };
+
+  // Load user's teams
+  const loadUserTeams = async () => {
+    try {
+      const response = await api.get('/teams');
+      const allTeams = response.data.teams || [];
+      
+      // Filter teams where user is a member
+      const userTeams = allTeams.filter(team => 
+        team.createdBy === user?._id || 
+        team.members.some(member => 
+          (typeof member === 'object' ? member._id : member) === user?._id
+        )
+      );
+      
+      setAvailableTeams(userTeams);
+    } catch (err) {
+      console.error('Load teams error:', err);
+      error('Failed to load teams');
+    }
+  };
+
+  // Select team and load its files
+  const selectTeam = async (team) => {
+    setCurrentTeam(team);
+    setShowTeamSelector(false);
+    await loadTeamFiles(team._id);
+    
+    // Add welcome message to terminal
+    setTerminalOutput([
+      { type: 'info', text: `Connected to team: ${team.name}`, time: new Date().toLocaleTimeString() },
+      { type: 'success', text: 'Ready for collaborative coding!', time: new Date().toLocaleTimeString() },
+      { type: 'info', text: 'Files loaded from server', time: new Date().toLocaleTimeString() }
+    ]);
+    
+    success(`Switched to team: ${team.name}`);
+  };
 
   // Monaco Editor configuration
   const editorOptions = {
@@ -862,6 +414,36 @@ This project is licensed under the MIT License.
     setOpenTabs(prev => prev.map(tab => 
       tab.name === activeTab ? { ...tab, modified: true } : tab
     ));
+
+    // Auto-save to server if team is selected (debounced)
+    if (currentTeam && activeTab) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        autoSaveFile(activeTab, value);
+      }, 1000); // Auto-save after 1 second of inactivity
+    }
+  };
+
+  const autoSaveTimeoutRef = useRef(null);
+
+  const autoSaveFile = async (fileName, content) => {
+    if (!currentTeam || !fileName || !content) return;
+    
+    try {
+      await api.post('/files/save', {
+        teamId: currentTeam._id,
+        fileName: fileName,
+        content: content
+      });
+      
+      // Update tab to show it's saved
+      setOpenTabs(prev => prev.map(tab => 
+        tab.name === fileName ? { ...tab, modified: false } : tab
+      ));
+    } catch (err) {
+      console.error('Auto-save error:', err);
+      // Don't show error toast for auto-save failures to avoid spam
+    }
   };
 
   const toggleFolder = (path) => {
@@ -993,13 +575,38 @@ This project is licensed under the MIT License.
     setContextMenu(null);
   };
 
-  const handleRenameConfirm = () => {
+  const handleRenameConfirm = async () => {
     if (!renameValue.trim() || !renamingItem) return;
 
     const oldPath = renamingItem.fullPath;
     const pathParts = oldPath.split('/');
     pathParts[pathParts.length - 1] = renameValue;
     const newPath = pathParts.join('/');
+
+    // Handle server-side rename for files
+    if (currentTeam && renamingItem.item.type === 'file') {
+      try {
+        // Get the old file content
+        const oldContent = fileContents[oldPath];
+        if (oldContent) {
+          // Save the content to the new file name
+          await api.post('/files/save', {
+            teamId: currentTeam._id,
+            fileName: newPath,
+            content: oldContent
+          });
+          
+          // Delete the old file
+          await api.delete(`/files/team/${currentTeam._id}/file/${oldPath}`);
+        }
+      } catch (err) {
+        console.error('Rename file error:', err);
+        error(err.response?.data?.message || 'Failed to rename file');
+        setRenamingItem(null);
+        setRenameValue('');
+        return;
+      }
+    }
 
     setFileTree(renameItemByPath(fileTree, oldPath, renameValue));
 
@@ -1048,12 +655,37 @@ This project is licensed under the MIT License.
     return { ...item };
   };
 
-  const handlePaste = (targetFolder, targetPath) => {
+  const handlePaste = async (targetFolder, targetPath) => {
     if (!clipboard) return;
 
     const { item, fullPath, operation } = clipboard;
 
     if (operation === 'cut') {
+      // Handle server-side move for files
+      if (currentTeam && item.type === 'file') {
+        try {
+          const content = fileContents[fullPath];
+          if (content) {
+            const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
+            
+            // Save to new location
+            await api.post('/files/save', {
+              teamId: currentTeam._id,
+              fileName: newPath,
+              content: content
+            });
+            
+            // Delete from old location
+            await api.delete(`/files/team/${currentTeam._id}/file/${fullPath}`);
+          }
+        } catch (err) {
+          console.error('Move file error:', err);
+          error(err.response?.data?.message || 'Failed to move file');
+          setContextMenu(null);
+          return;
+        }
+      }
+
       setFileTree(prev => {
         const removed = removeItemByPath(prev, fullPath);
         return addItemToPath(removed, targetPath, item);
@@ -1081,6 +713,28 @@ This project is licensed under the MIT License.
       setClipboard(null);
       success(`Moved ${item.name}`);
     } else if (operation === 'copy') {
+      // Handle server-side copy for files
+      if (currentTeam && item.type === 'file') {
+        try {
+          const content = fileContents[fullPath];
+          if (content) {
+            const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
+            
+            // Save copy to new location
+            await api.post('/files/save', {
+              teamId: currentTeam._id,
+              fileName: newPath,
+              content: content
+            });
+          }
+        } catch (err) {
+          console.error('Copy file error:', err);
+          error(err.response?.data?.message || 'Failed to copy file');
+          setContextMenu(null);
+          return;
+        }
+      }
+
       const newItem = duplicateItem(item);
       setFileTree(prev => addItemToPath(prev, targetPath, newItem));
 
@@ -1104,10 +758,23 @@ This project is licensed under the MIT License.
     setContextMenu(null);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!itemToDelete) return;
 
     const { item, fullPath } = itemToDelete;
+
+    // Delete from server if team is selected and it's a file
+    if (currentTeam && item.type === 'file') {
+      try {
+        await api.delete(`/files/team/${currentTeam._id}/file/${fullPath}`);
+      } catch (err) {
+        console.error('Delete file error:', err);
+        error(err.response?.data?.message || 'Failed to delete file');
+        setShowDeleteConfirm(false);
+        setItemToDelete(null);
+        return;
+      }
+    }
 
     setFileTree(prev => removeItemByPath(prev, fullPath));
 
@@ -1207,7 +874,7 @@ This project is licensed under the MIT License.
     return langMap[ext] || 'text';
   };
 
-  const handleCreateFile = () => {
+  const handleCreateFile = async () => {
     if (!newFileName.trim()) return;
 
     const pathParts = newFileName.split('/');
@@ -1248,6 +915,21 @@ This project is licensed under the MIT License.
     }
 
     const fullPath = pathParts.join('/');
+    
+    // Create file on server if team is selected
+    if (currentTeam) {
+      try {
+        await api.post('/files/save', {
+          teamId: currentTeam._id,
+          fileName: fullPath,
+          content: getDefaultContent(fullPath, getLanguageFromFile(newFileName))
+        });
+      } catch (err) {
+        console.error('Create file error:', err);
+        error(err.response?.data?.message || 'Failed to create file');
+      }
+    }
+    
     openFile(fullPath, getLanguageFromFile(newFileName), false);
 
     success(`File ${newFileName} created successfully!`);
@@ -1255,7 +937,7 @@ This project is licensed under the MIT License.
     setShowNewFileInput(false);
   };
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
 
     const pathParts = newFolderName.split('/');
@@ -1295,18 +977,47 @@ This project is licensed under the MIT License.
       setFileTree(createNestedPath(fileTree, pathParts, false));
     }
 
+    // Create directory on server if team is selected
+    if (currentTeam) {
+      try {
+        await api.post('/files/directory', {
+          teamId: currentTeam._id,
+          dirName: newFolderName
+        });
+      } catch (err) {
+        console.error('Create folder error:', err);
+        error(err.response?.data?.message || 'Failed to create folder');
+      }
+    }
+
     success(`Folder ${newFolderName} created successfully!`);
     setNewFolderName('');
     setShowNewFolderInput(false);
   };
 
-  const openFile = (fileName, language = 'javascript', hasErrors = false) => {
+  const openFile = async (fileName, language = 'javascript', hasErrors = false) => {
     const existingTab = openTabs.find(tab => tab.name === fileName);
     if (!existingTab) {
       setOpenTabs(prev => [...prev, { name: fileName, hasErrors, language, modified: false }]);
       
-      // Initialize file content if not exists
-      if (!fileContents[fileName]) {
+      // Load file content from server if team is selected
+      if (currentTeam && !fileContents[fileName]) {
+        try {
+          const response = await api.get(`/files/team/${currentTeam._id}/file/${fileName}`);
+          setFileContents(prev => ({
+            ...prev,
+            [fileName]: response.data.content
+          }));
+        } catch (err) {
+          console.error('Load file error:', err);
+          // Initialize with default content if file doesn't exist
+          setFileContents(prev => ({
+            ...prev,
+            [fileName]: getDefaultContent(fileName, language)
+          }));
+        }
+      } else if (!fileContents[fileName]) {
+        // Initialize file content if not exists
         setFileContents(prev => ({
           ...prev,
           [fileName]: getDefaultContent(fileName, language)
@@ -1356,11 +1067,29 @@ export default ${fileName.replace('.jsx', '')};`;
     }
   };
 
-  const handleSaveFile = () => {
-    success(`${activeTab} saved successfully!`);
-    setOpenTabs(prev => prev.map(tab => 
-      tab.name === activeTab ? { ...tab, modified: false } : tab
-    ));
+  const handleSaveFile = async () => {
+    if (!currentTeam || !activeTab) return;
+    
+    try {
+      setIsLoading(true);
+      const content = fileContents[activeTab] || '';
+      
+      await api.post('/files/save', {
+        teamId: currentTeam._id,
+        fileName: activeTab,
+        content: content
+      });
+      
+      success(`${activeTab} saved successfully!`);
+      setOpenTabs(prev => prev.map(tab => 
+        tab.name === activeTab ? { ...tab, modified: false } : tab
+      ));
+    } catch (err) {
+      console.error('Save file error:', err);
+      error(err.response?.data?.message || 'Failed to save file');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRunCode = () => {
@@ -1532,6 +1261,44 @@ export default ${fileName.replace('.jsx', '')};`;
             <span>Terminal</span>
             <span>Help</span>
           </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          {currentTeam ? (
+            <div className="flex items-center space-x-2 px-2 py-1 bg-blue-500/20 rounded border border-blue-500/30">
+              <Users className="h-3 w-3 text-blue-300" />
+              <span className="text-xs text-blue-300">{currentTeam.name}</span>
+              <button
+                onClick={() => setShowTeamSelector(true)}
+                className="text-blue-300 hover:text-blue-100"
+                title="Switch team"
+              >
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentTeam(null);
+                  setFileTree([]);
+                  setFileContents({});
+                  setOpenTabs([]);
+                  setActiveTab(null);
+                  setTeamMembers([]);
+                  setTerminalOutput([]);
+                  setProblems([]);
+                }}
+                className="text-blue-300 hover:text-blue-100"
+                title="Disconnect from team"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowTeamSelector(true)}
+              className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#2a2d3a] transition-colors"
+            >
+              Select Team
+            </button>
+          )}
         </div>
         <div className="ml-auto flex items-center space-x-2">
           <button
@@ -1784,15 +1551,61 @@ export default ${fileName.replace('.jsx', '')};`;
 
                       {/* Monaco Editor */}
                       <div className="flex-1 overflow-hidden">
-                        <Editor
-                          height="100%"
-                          language={getMonacoLanguage(openTabs.find(tab => tab.name === activeTab)?.language || 'javascript')}
-                          value={fileContents[activeTab] || ''}
-                          onChange={handleEditorChange}
-                          onMount={handleEditorDidMount}
-                          options={editorOptions}
-                          theme="hackcollab-dark"
-                        />
+                        {!currentTeam ? (
+                          <div className="h-full flex items-center justify-center bg-[#1e1e1e]">
+                            <div className="text-center">
+                              <Users className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+                              <h3 className="text-xl font-medium text-gray-300 mb-2">No Team Selected</h3>
+                              <p className="text-gray-500 mb-4">Select a team to start coding together</p>
+                              <button
+                                onClick={() => setShowTeamSelector(true)}
+                                className="px-4 py-2 bg-[#007acc] text-white rounded hover:bg-[#005a9e] transition-colors"
+                              >
+                                Select Team
+                              </button>
+                            </div>
+                          </div>
+                        ) : openTabs.length === 0 ? (
+                          <div className="h-full flex items-center justify-center bg-[#1e1e1e]">
+                            <div className="text-center">
+                              <FileText className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+                              <h3 className="text-xl font-medium text-gray-300 mb-2">No Files Open</h3>
+                              <p className="text-gray-500 mb-4">Create a new file or open an existing one</p>
+                              <div className="space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setShowNewFileInput(true);
+                                    setShowNewFolderInput(false);
+                                    setTimeout(() => newFileInputRef.current?.focus(), 100);
+                                  }}
+                                  className="px-4 py-2 bg-[#007acc] text-white rounded hover:bg-[#005a9e] transition-colors"
+                                >
+                                  New File
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowNewFolderInput(true);
+                                    setShowNewFileInput(false);
+                                    setTimeout(() => newFolderInputRef.current?.focus(), 100);
+                                  }}
+                                  className="px-4 py-2 bg-[#475569] text-white rounded hover:bg-[#64748b] transition-colors"
+                                >
+                                  New Folder
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <Editor
+                            height="100%"
+                            language={getMonacoLanguage(openTabs.find(tab => tab.name === activeTab)?.language || 'javascript')}
+                            value={fileContents[activeTab] || ''}
+                            onChange={handleEditorChange}
+                            onMount={handleEditorDidMount}
+                            options={editorOptions}
+                            theme="hackcollab-dark"
+                          />
+                        )}
                       </div>
                     </div>
                   </Panel>
@@ -1839,20 +1652,26 @@ export default ${fileName.replace('.jsx', '')};`;
                           <div className="h-full overflow-y-auto p-2 font-mono text-sm">
                             {terminalTab === 'terminal' && (
                               <div className="space-y-1">
-                                {terminalOutput.map((line, index) => (
-                                  <div
-                                    key={index}
-                                    className={`${
-                                      line.type === 'command' ? 'text-[#569cd6]' :
-                                      line.type === 'error' ? 'text-[#f44747]' :
-                                      line.type === 'success' ? 'text-[#4ec9b0]' :
-                                      line.type === 'warning' ? 'text-[#dcdcaa]' :
-                                      'text-[#d4d4d4]'
-                                    }`}
-                                  >
-                                    {line.text}
+                                {terminalOutput.length === 0 ? (
+                                  <div className="text-[#969696] italic">
+                                    No terminal output yet. Select a team to get started.
                                   </div>
-                                ))}
+                                ) : (
+                                  terminalOutput.map((line, index) => (
+                                    <div
+                                      key={index}
+                                      className={`${
+                                        line.type === 'command' ? 'text-[#569cd6]' :
+                                        line.type === 'error' ? 'text-[#f44747]' :
+                                        line.type === 'success' ? 'text-[#4ec9b0]' :
+                                        line.type === 'warning' ? 'text-[#dcdcaa]' :
+                                        'text-[#d4d4d4]'
+                                      }`}
+                                    >
+                                      {line.text}
+                                    </div>
+                                  ))
+                                )}
                                 <div className="flex items-center text-[#569cd6]">
                                   <span>$ </span>
                                   <div className="w-2 h-4 bg-white ml-1 animate-pulse"></div>
@@ -1862,36 +1681,61 @@ export default ${fileName.replace('.jsx', '')};`;
 
                             {terminalTab === 'problems' && (
                               <div className="space-y-2">
-                                {problems.map((problem, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-start space-x-3 p-2 rounded hover:bg-[#2a2d3a] transition-colors cursor-pointer"
-                                  >
-                                    <div className={`mt-1 ${
-                                      problem.severity === 'error' ? 'text-[#f44747]' :
-                                      problem.severity === 'warning' ? 'text-[#ffcc02]' :
-                                      'text-[#75beff]'
-                                    }`}>
-                                      {problem.severity === 'error' ? <AlertTriangle className="h-4 w-4" /> :
-                                       problem.severity === 'warning' ? <AlertTriangle className="h-4 w-4" /> :
-                                       <Info className="h-4 w-4" />}
-                                    </div>
-                                    <div className="flex-1">
-                                      <p className="text-[#d4d4d4] text-sm">{problem.message}</p>
-                                      <p className="text-[#969696] text-xs">
-                                        {problem.file}:{problem.line}
-                                      </p>
-                                    </div>
+                                {problems.length === 0 ? (
+                                  <div className="text-center py-8">
+                                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                                    <p className="text-[#969696] text-sm">No problems found</p>
+                                    <p className="text-[#858585] text-xs mt-1">Your code is clean!</p>
                                   </div>
-                                ))}
+                                ) : (
+                                  problems.map((problem, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-start space-x-3 p-2 rounded hover:bg-[#2a2d3a] transition-colors cursor-pointer"
+                                    >
+                                      <div className={`mt-1 ${
+                                        problem.severity === 'error' ? 'text-[#f44747]' :
+                                        problem.severity === 'warning' ? 'text-[#ffcc02]' :
+                                        'text-[#75beff]'
+                                      }`}>
+                                        {problem.severity === 'error' ? <AlertTriangle className="h-4 w-4" /> :
+                                         problem.severity === 'warning' ? <AlertTriangle className="h-4 w-4" /> :
+                                         <Info className="h-4 w-4" />}
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="text-[#d4d4d4] text-sm">{problem.message}</p>
+                                        <p className="text-[#969696] text-xs">
+                                          {problem.file}:{problem.line}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
                               </div>
                             )}
 
                             {terminalTab === 'output' && (
                               <div className="space-y-1 text-[#d4d4d4]">
-                                <div className="text-[#4ec9b0]">[Build] Starting development server...</div>
-                                <div className="text-[#569cd6]">[Vite] Server running at http://localhost:5173</div>
-                                <div className="text-[#4ec9b0]">[Build] ✓ Built in 1.2s</div>
+                                {terminalOutput.length === 0 ? (
+                                  <div className="text-[#969696] italic">
+                                    No build output yet. Run commands to see output here.
+                                  </div>
+                                ) : (
+                                  terminalOutput.map((line, index) => (
+                                    <div
+                                      key={index}
+                                      className={`${
+                                        line.type === 'command' ? 'text-[#569cd6]' :
+                                        line.type === 'error' ? 'text-[#f44747]' :
+                                        line.type === 'success' ? 'text-[#4ec9b0]' :
+                                        line.type === 'warning' ? 'text-[#dcdcaa]' :
+                                        'text-[#d4d4d4]'
+                                      }`}
+                                    >
+                                      {line.text}
+                                    </div>
+                                  ))
+                                )}
                               </div>
                             )}
                           </div>
@@ -1912,14 +1756,19 @@ export default ${fileName.replace('.jsx', '')};`;
           <span>✓ Monaco Editor</span>
           <span>UTF-8</span>
           <span>LF</span>
-          <span>{openTabs.find(tab => tab.name === activeTab)?.language || 'JavaScript'}</span>
+          <span>{openTabs.find(tab => tab.name === activeTab)?.language || 'No file'}</span>
         </div>
         <div className="flex items-center space-x-4">
           <span>Ln 1, Col 1</span>
           <span>Spaces: 2</span>
           <div className="flex items-center space-x-1">
             <Users className="h-3 w-3" />
-            <span>{teamMembers.filter(m => m.status === 'online').length} online</span>
+            <span>
+              {currentTeam 
+                ? `${teamMembers.filter(m => m.status === 'online').length} online` 
+                : 'No team'
+              }
+            </span>
           </div>
         </div>
       </div>
@@ -2140,6 +1989,88 @@ export default ${fileName.replace('.jsx', '')};`;
           </motion.div>
         </div>
       )}
+
+      {/* Team Selector Modal */}
+      <AnimatePresence>
+        {showTeamSelector && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#2d2d30] border border-[#454545] rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-white">Select Team</h3>
+                <button
+                  onClick={() => setShowTeamSelector(false)}
+                  className="p-1 rounded hover:bg-[#3e3e42] transition-colors"
+                >
+                  <X className="h-4 w-4 text-[#cccccc]" />
+                </button>
+              </div>
+              
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {availableTeams.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm">No teams available</p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      Create or join a team to start collaborating
+                    </p>
+                  </div>
+                ) : (
+                  availableTeams.map((team) => (
+                    <button
+                      key={team._id}
+                      onClick={() => selectTeam(team)}
+                      className={`w-full p-3 rounded text-left transition-colors ${
+                        currentTeam?._id === team._id
+                          ? 'bg-blue-500/20 border border-blue-500/30'
+                          : 'bg-[#3c3c3c] hover:bg-[#4c4c4c] border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded flex items-center justify-center">
+                          <span className="text-xs font-medium text-white">
+                            {team.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-white text-sm font-medium">{team.name}</span>
+                            {currentTeam?._id === team._id && (
+                              <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded border border-green-500/30">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {team.members?.length || 0} members
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-[#454545]">
+                <button
+                  onClick={() => {
+                    setShowTeamSelector(false);
+                    // Navigate to team management page
+                    window.location.href = '/teams';
+                  }}
+                  className="w-full px-4 py-2 bg-[#007acc] text-white rounded hover:bg-[#005a9e] transition-colors text-sm"
+                >
+                  Manage Teams
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
