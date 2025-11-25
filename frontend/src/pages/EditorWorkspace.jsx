@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import Editor from '@monaco-editor/react';
-import {  
-  MessageSquare, 
-  Send, 
+import { FRAMEWORKS } from "../editor/frameworkManager";
+import { FrameworkConfig } from '../editor/frameworkConfig';
+import {
+  MessageSquare,
+  Send,
   Users,
   Settings,
   FileText,
@@ -23,6 +25,7 @@ import {
   Info,
   GitBranch,
   Search,
+  PlayCircle
 } from 'lucide-react';
 import VideoCallModal from '../components/VideoCallModal';
 import { useToast } from '../contexts/ToastContext';
@@ -59,7 +62,9 @@ const EditorWorkspace = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [availableTeams, setAvailableTeams] = useState([]);
   const [showTeamSelector, setShowTeamSelector] = useState(false);
-  
+  const [framework, setFramework] = useState(null);
+  const [showFrameworkMenu, setShowFrameworkMenu] = useState(false);
+
   const chatEndRef = useRef(null);
   const editorRef = useRef(null);
   const newFileInputRef = useRef(null);
@@ -86,6 +91,23 @@ const EditorWorkspace = () => {
 
   // Problems - starts empty, populated from linter/compiler
   const [problems, setProblems] = useState([]);
+
+  // Apply framework configuration
+  const applyFrameworkConfig = (fwName) => {
+    const config = FrameworkConfig[fwName];
+    if (!config || !window.monaco || !editorRef.current) return;
+
+    // Apply language-specific Monaco settings
+    config.apply(window.monaco);
+
+    // Force Monaco to switch language mode
+    const model = editorRef.current.getModel();
+    if (model) {
+      window.monaco.editor.setModelLanguage(model, config.language);
+    }
+
+    console.log("Framework applied:", fwName, "Language:", config.language);
+  };
 
   // Team members - starts empty, populated from current team
   const [teamMembers, setTeamMembers] = useState([]);
@@ -148,11 +170,11 @@ const EditorWorkspace = () => {
     try {
       const response = await api.get(`/files/team/${teamId}/files`);
       const files = response.data.files || [];
-      
+
       // Convert flat file list to tree structure
       const tree = buildFileTree(files);
       setFileTree(tree);
-      
+
       // Load team members
       await loadTeamMembers(teamId);
     } catch (err) {
@@ -166,7 +188,7 @@ const EditorWorkspace = () => {
     try {
       const response = await api.get(`/teams/${teamId}/members`);
       const members = response.data.members || [];
-      
+
       // Transform team members data for display
       const formattedMembers = members.map(member => ({
         name: member.name || member.email || 'Unknown',
@@ -175,7 +197,7 @@ const EditorWorkspace = () => {
         activity: 'Active',
         _id: member._id || member.id
       }));
-      
+
       setTeamMembers(formattedMembers);
     } catch (err) {
       console.error('Load team members error:', err);
@@ -191,10 +213,10 @@ const EditorWorkspace = () => {
     files.forEach(file => {
       const parts = file.name.split('/');
       let currentPath = '';
-      
+
       parts.forEach((part, index) => {
         const path = currentPath ? `${currentPath}/${part}` : part;
-        
+
         if (!pathMap[path]) {
           const item = {
             name: part,
@@ -204,9 +226,9 @@ const EditorWorkspace = () => {
             language: index === parts.length - 1 ? getLanguageFromFile(part) : null,
             children: index === parts.length - 1 ? undefined : []
           };
-          
+
           pathMap[path] = item;
-          
+
           if (currentPath === '') {
             tree.push(item);
           } else {
@@ -216,7 +238,7 @@ const EditorWorkspace = () => {
             }
           }
         }
-        
+
         currentPath = path;
       });
     });
@@ -237,15 +259,15 @@ const EditorWorkspace = () => {
     try {
       const response = await api.get('/teams');
       const allTeams = response.data.teams || [];
-      
+
       // Filter teams where user is a member
-      const userTeams = allTeams.filter(team => 
-        team.createdBy === user?._id || 
-        team.members.some(member => 
+      const userTeams = allTeams.filter(team =>
+        team.createdBy === user?._id ||
+        team.members.some(member =>
           (typeof member === 'object' ? member._id : member) === user?._id
         )
       );
-      
+
       setAvailableTeams(userTeams);
     } catch (err) {
       console.error('Load teams error:', err);
@@ -258,14 +280,14 @@ const EditorWorkspace = () => {
     setCurrentTeam(team);
     setShowTeamSelector(false);
     await loadTeamFiles(team._id);
-    
+
     // Add welcome message to terminal
     setTerminalOutput([
       { type: 'info', text: `Connected to team: ${team.name}`, time: new Date().toLocaleTimeString() },
       { type: 'success', text: 'Ready for collaborative coding!', time: new Date().toLocaleTimeString() },
       { type: 'info', text: 'Files loaded from server', time: new Date().toLocaleTimeString() }
     ]);
-    
+
     success(`Switched to team: ${team.name}`);
   };
 
@@ -315,7 +337,7 @@ const EditorWorkspace = () => {
 
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
-    
+
     // Configure Monaco themes
     monaco.editor.defineTheme('hackcollab-dark', {
       base: 'vs-dark',
@@ -411,7 +433,7 @@ const EditorWorkspace = () => {
     }));
 
     // Mark tab as modified
-    setOpenTabs(prev => prev.map(tab => 
+    setOpenTabs(prev => prev.map(tab =>
       tab.name === activeTab ? { ...tab, modified: true } : tab
     ));
 
@@ -428,16 +450,16 @@ const EditorWorkspace = () => {
 
   const autoSaveFile = async (fileName, content) => {
     if (!currentTeam || !fileName || !content) return;
-    
+
     try {
       await api.post('/files/save', {
         teamId: currentTeam._id,
         fileName: fileName,
         content: content
       });
-      
+
       // Update tab to show it's saved
-      setOpenTabs(prev => prev.map(tab => 
+      setOpenTabs(prev => prev.map(tab =>
         tab.name === fileName ? { ...tab, modified: false } : tab
       ));
     } catch (err) {
@@ -595,7 +617,7 @@ const EditorWorkspace = () => {
             fileName: newPath,
             content: oldContent
           });
-          
+
           // Delete the old file
           await api.delete(`/files/team/${currentTeam._id}/file/${oldPath}`);
         }
@@ -667,14 +689,14 @@ const EditorWorkspace = () => {
           const content = fileContents[fullPath];
           if (content) {
             const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
-            
+
             // Save to new location
             await api.post('/files/save', {
               teamId: currentTeam._id,
               fileName: newPath,
               content: content
             });
-            
+
             // Delete from old location
             await api.delete(`/files/team/${currentTeam._id}/file/${fullPath}`);
           }
@@ -719,7 +741,7 @@ const EditorWorkspace = () => {
           const content = fileContents[fullPath];
           if (content) {
             const newPath = targetPath ? `${targetPath}/${item.name}` : item.name;
-            
+
             // Save copy to new location
             await api.post('/files/save', {
               teamId: currentTeam._id,
@@ -915,7 +937,7 @@ const EditorWorkspace = () => {
     }
 
     const fullPath = pathParts.join('/');
-    
+
     // Create file on server if team is selected
     if (currentTeam) {
       try {
@@ -929,7 +951,7 @@ const EditorWorkspace = () => {
         error(err.response?.data?.message || 'Failed to create file');
       }
     }
-    
+
     openFile(fullPath, getLanguageFromFile(newFileName), false);
 
     success(`File ${newFileName} created successfully!`);
@@ -999,7 +1021,7 @@ const EditorWorkspace = () => {
     const existingTab = openTabs.find(tab => tab.name === fileName);
     if (!existingTab) {
       setOpenTabs(prev => [...prev, { name: fileName, hasErrors, language, modified: false }]);
-      
+
       // Load file content from server if team is selected
       if (currentTeam && !fileContents[fileName]) {
         try {
@@ -1069,19 +1091,19 @@ export default ${fileName.replace('.jsx', '')};`;
 
   const handleSaveFile = async () => {
     if (!currentTeam || !activeTab) return;
-    
+
     try {
       setIsLoading(true);
       const content = fileContents[activeTab] || '';
-      
+
       await api.post('/files/save', {
         teamId: currentTeam._id,
         fileName: activeTab,
         content: content
       });
-      
+
       success(`${activeTab} saved successfully!`);
-      setOpenTabs(prev => prev.map(tab => 
+      setOpenTabs(prev => prev.map(tab =>
         tab.name === activeTab ? { ...tab, modified: false } : tab
       ));
     } catch (err) {
@@ -1147,11 +1169,10 @@ export default ${fileName.replace('.jsx', '')};`;
       return (
         <div key={index} style={{ paddingLeft: `${level * 12}px` }}>
           <div
-            className={`flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-[#2a2d3a] transition-colors ${
-              item.active || (item.type === 'folder' && selectedFolder === item.name)
-                ? 'bg-[#37373d] text-white'
-                : 'text-[#cccccc]'
-            }`}
+            className={`flex items-center py-1 px-2 text-sm cursor-pointer hover:bg-[#2a2d3a] transition-colors ${item.active || (item.type === 'folder' && selectedFolder === item.name)
+              ? 'bg-[#37373d] text-white'
+              : 'text-[#cccccc]'
+              }`}
             onClick={() => {
               if (item.type === 'folder') {
                 toggleFolder(item.name);
@@ -1247,6 +1268,60 @@ export default ${fileName.replace('.jsx', '')};`;
     }
   };
 
+  const handleInstallDependencies = async () => {
+    if (!currentTeam) {
+      error("Select a team first!");
+      return;
+    }
+
+    try {
+      setTerminalOutput(prev => [
+        ...prev,
+        { type: "info", text: "Installing dependencies...", time: new Date().toLocaleTimeString() }
+      ]);
+
+      const res = await api.post(`/runtime/${currentTeam.name}/install`, {});
+
+      success("Dependencies installed!");
+      setTerminalOutput(prev => [...prev, { type: "success", text: res.data.message }]);
+
+    } catch (err) {
+      console.error(err);
+      error("Install failed!");
+      setTerminalOutput(prev => [
+        ...prev,
+        { type: "error", text: err.response?.data?.error || "Unknown error" }
+      ]);
+    }
+  };
+
+  const handleRunProject = async () => {
+  if (!currentTeam) {
+    error("Select a team first!");
+    return;
+  }
+
+  try {
+    setTerminalOutput(prev => [
+      ...prev,
+      { type: "info", text: "Running project...", time: new Date().toLocaleTimeString() }
+    ]);
+
+    const res = await api.post(`/runtime/${currentTeam.name}/run`, {});
+
+    success("Project started!");
+    setTerminalOutput(prev => [...prev, { type: "success", text: res.data.message }]);
+
+  } catch (err) {
+    console.error(err);
+    error("Run failed!");
+    setTerminalOutput(prev => [
+      ...prev,
+      { type: "error", text: err.response?.data?.error || "Unknown error" }
+    ]);
+  }
+};
+
   // VS Code-like layout
   return (
     <div className="w-full h-screen bg-[#1e1e1e] text-white flex flex-col overflow-hidden">
@@ -1300,7 +1375,53 @@ export default ${fileName.replace('.jsx', '')};`;
             </button>
           )}
         </div>
+        {/* Framework Selector */}
+        <div className="relative ml-4">
+          <button
+            onClick={() => setShowFrameworkMenu(!showFrameworkMenu)}
+            className="px-2 py-1 bg-[#2a2d3a] text-xs flex items-center rounded hover:bg-[#333] transition"
+          >
+            {framework || "Select Framework"}
+            <ChevronDown className="h-3 w-3 ml-1" />
+          </button>
+
+          {showFrameworkMenu && (
+            <div className="absolute top-full left-0 bg-[#2d2d30] border border-[#454545] rounded shadow-xl w-40 z-50">
+              {Object.keys(FRAMEWORKS).map((fw) => (
+                <button
+                  key={fw}
+                  onClick={async () => {
+                    setShowFrameworkMenu(false);
+                    setFramework(fw);
+                    applyFrameworkConfig(fw);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-xs hover:bg-[#3e3e42] transition ${framework === fw ? "bg-[#3b3f4a]" : ""
+                    }`}
+                >
+                  {fw}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="ml-auto flex items-center space-x-2">
+          <button
+            onClick={handleInstallDependencies}
+            className="px-2 py-1 hover:bg-[#2a2d3a] rounded text-xs flex items-center space-x-1 text-green-400"
+          >
+            <Check className="h-3 w-3" />
+            <span>Install</span>
+          </button>
+
+          {/* Run Flask/Node/React App */}
+          <button
+            onClick={handleRunProject}
+            className="px-2 py-1 hover:bg-[#2a2d3a] rounded text-xs flex items-center space-x-1 text-yellow-300"
+          >
+            <PlayCircle className="h-3 w-3" />
+            <span>Run</span>
+          </button>
+
           <button
             onClick={() => setShowChatModal(true)}
             className="px-2 py-1 hover:bg-[#2a2d3a] rounded text-xs flex items-center space-x-1"
@@ -1328,7 +1449,7 @@ export default ${fileName.replace('.jsx', '')};`;
       <div className="flex-1 flex overflow-hidden">
         {/* Activity Bar */}
         <div className="w-12 bg-[#333333] border-r border-[#2d2d30] flex flex-col items-center py-2 space-y-4 flex-shrink-0">
-          <button 
+          <button
             className={`p-2 rounded hover:bg-[#2a2d3a] ${!sidebarCollapsed ? 'bg-[#37373d]' : ''}`}
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           >
@@ -1381,7 +1502,7 @@ export default ${fileName.replace('.jsx', '')};`;
                         </button>
                       </div>
                     </div>
-                    
+
                     {/* File Tree */}
                     <div className="p-2 overflow-y-auto h-full">
                       <div
@@ -1519,11 +1640,10 @@ export default ${fileName.replace('.jsx', '')};`;
                         {openTabs.map((tab) => (
                           <div
                             key={tab.name}
-                            className={`flex items-center px-3 h-full border-r border-[#2d2d30] cursor-pointer min-w-0 group ${
-                              activeTab === tab.name 
-                                ? 'bg-[#1e1e1e] text-white' 
-                                : 'bg-[#2d2d30] text-[#969696] hover:text-white'
-                            }`}
+                            className={`flex items-center px-3 h-full border-r border-[#2d2d30] cursor-pointer min-w-0 group ${activeTab === tab.name
+                              ? 'bg-[#1e1e1e] text-white'
+                              : 'bg-[#2d2d30] text-[#969696] hover:text-white'
+                              }`}
                             onClick={() => setActiveTab(tab.name)}
                           >
                             <FileText className={`h-3 w-3 mr-2 ${getLanguageColor(tab.language)}`} />
@@ -1623,11 +1743,10 @@ export default ${fileName.replace('.jsx', '')};`;
                                 <button
                                   key={tab}
                                   onClick={() => setTerminalTab(tab.toLowerCase())}
-                                  className={`px-2 py-1 rounded transition-colors ${
-                                    terminalTab === tab.toLowerCase()
-                                      ? 'bg-[#37373d] text-white'
-                                      : 'text-[#cccccc] hover:text-white hover:bg-[#2a2d3a]'
-                                  }`}
+                                  className={`px-2 py-1 rounded transition-colors ${terminalTab === tab.toLowerCase()
+                                    ? 'bg-[#37373d] text-white'
+                                    : 'text-[#cccccc] hover:text-white hover:bg-[#2a2d3a]'
+                                    }`}
                                 >
                                   {tab}
                                   {tab === 'PROBLEMS' && problems.length > 0 && (
@@ -1660,13 +1779,12 @@ export default ${fileName.replace('.jsx', '')};`;
                                   terminalOutput.map((line, index) => (
                                     <div
                                       key={index}
-                                      className={`${
-                                        line.type === 'command' ? 'text-[#569cd6]' :
+                                      className={`${line.type === 'command' ? 'text-[#569cd6]' :
                                         line.type === 'error' ? 'text-[#f44747]' :
-                                        line.type === 'success' ? 'text-[#4ec9b0]' :
-                                        line.type === 'warning' ? 'text-[#dcdcaa]' :
-                                        'text-[#d4d4d4]'
-                                      }`}
+                                          line.type === 'success' ? 'text-[#4ec9b0]' :
+                                            line.type === 'warning' ? 'text-[#dcdcaa]' :
+                                              'text-[#d4d4d4]'
+                                        }`}
                                     >
                                       {line.text}
                                     </div>
@@ -1693,14 +1811,13 @@ export default ${fileName.replace('.jsx', '')};`;
                                       key={index}
                                       className="flex items-start space-x-3 p-2 rounded hover:bg-[#2a2d3a] transition-colors cursor-pointer"
                                     >
-                                      <div className={`mt-1 ${
-                                        problem.severity === 'error' ? 'text-[#f44747]' :
+                                      <div className={`mt-1 ${problem.severity === 'error' ? 'text-[#f44747]' :
                                         problem.severity === 'warning' ? 'text-[#ffcc02]' :
-                                        'text-[#75beff]'
-                                      }`}>
+                                          'text-[#75beff]'
+                                        }`}>
                                         {problem.severity === 'error' ? <AlertTriangle className="h-4 w-4" /> :
-                                         problem.severity === 'warning' ? <AlertTriangle className="h-4 w-4" /> :
-                                         <Info className="h-4 w-4" />}
+                                          problem.severity === 'warning' ? <AlertTriangle className="h-4 w-4" /> :
+                                            <Info className="h-4 w-4" />}
                                       </div>
                                       <div className="flex-1">
                                         <p className="text-[#d4d4d4] text-sm">{problem.message}</p>
@@ -1724,13 +1841,12 @@ export default ${fileName.replace('.jsx', '')};`;
                                   terminalOutput.map((line, index) => (
                                     <div
                                       key={index}
-                                      className={`${
-                                        line.type === 'command' ? 'text-[#569cd6]' :
+                                      className={`${line.type === 'command' ? 'text-[#569cd6]' :
                                         line.type === 'error' ? 'text-[#f44747]' :
-                                        line.type === 'success' ? 'text-[#4ec9b0]' :
-                                        line.type === 'warning' ? 'text-[#dcdcaa]' :
-                                        'text-[#d4d4d4]'
-                                      }`}
+                                          line.type === 'success' ? 'text-[#4ec9b0]' :
+                                            line.type === 'warning' ? 'text-[#dcdcaa]' :
+                                              'text-[#d4d4d4]'
+                                        }`}
                                     >
                                       {line.text}
                                     </div>
@@ -1764,8 +1880,8 @@ export default ${fileName.replace('.jsx', '')};`;
           <div className="flex items-center space-x-1">
             <Users className="h-3 w-3" />
             <span>
-              {currentTeam 
-                ? `${teamMembers.filter(m => m.status === 'online').length} online` 
+              {currentTeam
+                ? `${teamMembers.filter(m => m.status === 'online').length} online`
                 : 'No team'
               }
             </span>
@@ -1795,7 +1911,7 @@ export default ${fileName.replace('.jsx', '')};`;
               className="fixed inset-0 bg-black/50"
               onClick={() => setShowChatModal(false)}
             />
-            
+
             {/* Chat Panel */}
             <motion.div
               initial={{ x: '100%' }}
@@ -1835,13 +1951,12 @@ export default ${fileName.replace('.jsx', '')};`;
                         <span className="text-xs text-[#969696]">{msg.user}</span>
                         <span className="text-xs text-[#858585]">{msg.time}</span>
                       </div>
-                      <div className={`p-2 rounded text-sm ${
-                        msg.userId === (user?.id || user?._id || user?.email) 
-                          ? 'bg-[#007acc] text-white' 
-                          : msg.type === 'system'
+                      <div className={`p-2 rounded text-sm ${msg.userId === (user?.id || user?._id || user?.email)
+                        ? 'bg-[#007acc] text-white'
+                        : msg.type === 'system'
                           ? 'bg-[#3e3e42] text-[#cccccc] italic'
                           : 'bg-[#3e3e42] text-[#d4d4d4]'
-                      }`}>
+                        }`}>
                         {msg.message}
                       </div>
                     </div>
@@ -1874,7 +1989,7 @@ export default ${fileName.replace('.jsx', '')};`;
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     className="flex-1 px-3 py-2 bg-[#3c3c3c] border border-[#464647] rounded text-white placeholder-[#969696] text-sm focus:outline-none focus:border-[#007acc]"
                   />
-                  <button 
+                  <button
                     onClick={handleSendMessage}
                     disabled={!message.trim()}
                     className="px-3 py-2 bg-[#007acc] text-white rounded hover:bg-[#005a9e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -2009,7 +2124,7 @@ export default ${fileName.replace('.jsx', '')};`;
                   <X className="h-4 w-4 text-[#cccccc]" />
                 </button>
               </div>
-              
+
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {availableTeams.length === 0 ? (
                   <div className="text-center py-8">
@@ -2024,11 +2139,10 @@ export default ${fileName.replace('.jsx', '')};`;
                     <button
                       key={team._id}
                       onClick={() => selectTeam(team)}
-                      className={`w-full p-3 rounded text-left transition-colors ${
-                        currentTeam?._id === team._id
-                          ? 'bg-blue-500/20 border border-blue-500/30'
-                          : 'bg-[#3c3c3c] hover:bg-[#4c4c4c] border border-transparent'
-                      }`}
+                      className={`w-full p-3 rounded text-left transition-colors ${currentTeam?._id === team._id
+                        ? 'bg-blue-500/20 border border-blue-500/30'
+                        : 'bg-[#3c3c3c] hover:bg-[#4c4c4c] border border-transparent'
+                        }`}
                     >
                       <div className="flex items-center space-x-3">
                         <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded flex items-center justify-center">
@@ -2054,7 +2168,7 @@ export default ${fileName.replace('.jsx', '')};`;
                   ))
                 )}
               </div>
-              
+
               <div className="mt-4 pt-4 border-t border-[#454545]">
                 <button
                   onClick={() => {
